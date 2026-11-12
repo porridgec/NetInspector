@@ -200,8 +200,11 @@ inspector.offlineQueueCapacity = 500;           // 断网时磁盘队列容量�
 | --- | --- | --- |
 | `URLSession`（默认/临时配置） | ✅ | swizzle `NSURLSessionConfiguration`，把 `LNURLProtocol` 插入 `protocolClasses` |
 | `URLSession.shared` / `NSURLConnection` | ✅ | 全局 `[NSURLProtocol registerClass:]` |
+| **Swift Package（SPM）内的网络请求** | ✅ | 与主项目同进程、同一 URL Loading System。hook 在 `+load` 时**无条件注入**（早于任何 Swift 代码执行），因此包内 `static let session = URLSession(...)` 这类"早于 `-start` 创建"的长寿单例同样被覆盖；真正的开关在 `canInitWithRequest:`，未启用时零开销 |
 | Alamofire / AFNetworking / Moya / SDWebImage 等 | ✅ | 全部基于 URLSession，被上面两条覆盖 |
+| Network.framework（NWConnection）/ 自定义 socket | ❌ | 不经过 URL Loading System |
 | WKWebView | ❌ | 网络请求发生在独立进程，URLProtocol 无法覆盖（可用 `WKURLSchemeHandler` 另行扩展） |
+| App Extension / Widget / Watch 进程 | ❌ | 独立进程，需在对应 target 单独集成并启动 |
 | `backgroundSessionConfiguration` | ❌ | 系统 API 限制，background session 忽略 protocolClasses |
 | 命中缓存的请求 | 可能不显示 | 缓存命中时加载系统不会发起请求；本工具刻意不改缓存策略以免影响 App 行为 |
 | 下载/上传任务的 body | 部分 | 请求 body 已尽力捕获；超大（>32 MiB）流式 body 只记录截断说明 |

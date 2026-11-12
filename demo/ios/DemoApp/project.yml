@@ -4,6 +4,9 @@ options:
   deploymentTarget:
     iOS: "16.0"
   createIntermediateGroups: true
+packages:
+  DemoKit:
+    path: ../DemoKit
 settings:
   base:
     SWIFT_VERSION: "5.0"
@@ -16,6 +19,8 @@ targets:
       - path: DemoApp
         excludes:
           - "Info.plist"
+    dependencies:
+      - package: DemoKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.example.netinspector.demo

@@ -29,6 +29,8 @@ App 首页 → 「Mac 服务端」→ 填入横栏 IP → 「应用并重启」�
 | GET 重定向 ×3 | 302 链 | **每跳单独成条**（Charles 行为） |
 | GET 慢请求 | 4s 延迟 | 耗时列分级着色 |
 | GET 不可达 | 超时报错 | ERR 标记 + Overview 错误信息 |
+| **GET via SPM 包 · 早建 session** | 本地 Swift Package（`DemoKit`） | 包内 `static let` 单例，**在 NetInspector `-start` 之前创建**——验证早建 session 也被拦截 |
+| **GET via SPM 包 · ephemeral** | 本地 Swift Package | 包内调用时新建 session |
 
 另有「自动连发」（每 3 秒随机）和「🔥 全部来一发」。
 
@@ -49,17 +51,18 @@ xcrun simctl spawn <UDID> defaults write com.example.netinspector.demo demo.serv
 
 ```
 DemoApp/
-├── project.yml                    # xcodegen 配置（重新生成工程用）
+├── project.yml                    # xcodegen 配置（重新生成工程用；含本地包 DemoKit 依赖）
 ├── DemoApp.xcodeproj              # 已生成，直接打开即可
 └── DemoApp/
-    ├── DemoAppApp.swift           # @main，App 启动即 start NetInspector
+    ├── DemoAppApp.swift           # @main；启动时先 DemoKit.warmup() 再 start（验证早建 session 拦截）
     ├── ContentView.swift          # 控制台 UI
     ├── DemoStore.swift            # 状态/配置/自动连发
-    ├── NetworkDemo.swift          # 各种请求用例（不同 session 形态）
+    ├── NetworkDemo.swift          # 各种请求用例（不同 session 形态 + SPM 包）
     ├── DemoAssets.swift           # 真实 JPEG（multipart 演示用，生成产物）
     ├── DemoApp-Bridging-Header.h  # #import "NetInspector/NetInspector.h"
     ├── Info.plist                 # 含 ATS 例外（demo 专用）
     └── NetInspector/              # 客户端模块快照（源：client/ios/NetInspector）
+../DemoKit/                        # 本地 SPM 包（模拟第三方包的网络层）
 ```
 
 > ⚠️ `NetInspector/` 是 `client/ios/NetInspector/` 的快照拷贝（保证 demo 目录自包含可分享）。
@@ -68,5 +71,6 @@ DemoApp/
 ## 已在真机/模拟器环境验证
 
 - iPhone 17 模拟器 (iOS 26.2) + macOS Node 服务端
-- 全部 9 种形态捕获 ✅、重定向逐跳 ✅、multipart Parts 视图 ✅、图片预览 ✅、
-  错误事件 ✅、断线落盘重连冲刷 ✅
+- 全部 11 种形态捕获 ✅（含 **SPM 包内早建 session / ephemeral session**）
+- 重定向逐跳 ✅、multipart Parts 视图 ✅、图片预览 ✅、错误事件 ✅、
+  断线落盘重连冲刷 ✅、手机代理场景（代理绕过 + HTTP 回退）✅

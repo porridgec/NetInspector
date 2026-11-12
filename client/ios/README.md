@@ -10,7 +10,7 @@
 | `LNNetInspector.h/.m` | 公开门面：配置、启停、离线冲刷 |
 | `LNNetInspector+Internal.h` | 内部接口（拦截器 ↔ 门面通信） |
 | `LNURLProtocol.h/.m` | 录制型 `NSURLProtocol`：捕获请求/响应/重定向/错误 |
-| `LNURLSessionHook.h/.m` | Swizzle `NSURLSessionConfiguration`，让第三方库也被拦截 |
+| `LNURLSessionHook.h/.m` | Swizzle `NSURLSessionConfiguration`：`+load` 时**无条件注入**（覆盖 SPM 包内早于 `-start` 创建的 session 单例），开关在 `canInitWithRequest:` |
 | `LNWebSocketClient.h/.m` | WebSocket 客户端：指数退避重连 + 心跳 |
 | `LNOfflineQueue.h/.m` | 磁盘离线队列（Caches 目录，断网可存活重启） |
 | `LNBodyCoding.h/.m` | Body 安全编码 + 流式 body 缓冲（超限自动落盘，multipart/大上传不受影响） |

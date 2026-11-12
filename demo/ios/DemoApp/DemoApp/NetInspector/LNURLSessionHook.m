@@ -17,8 +17,15 @@ static LNConfigFactoryIMP LN_origEphemeralFactory = NULL;
 static NSURLSessionConfiguration *LNInject(NSURLSessionConfiguration *config) {
     if (!config) return nil;
     @try {
-        if (![LNNetInspector shared].enabled) return config;
-
+        // NOTE: unconditional — we inject even before -[LNNetInspector start].
+        // Reason: URLSession singletons (very common in Swift Packages:
+        // `static let session = URLSession(...)`) freeze their configuration
+        // at creation time. If we only injected while enabled, every session
+        // created before -start would be invisible FOREVER. +load runs before
+        // any Swift code (Swift statics are lazy), so injecting here reaches
+        // every configuration in the process. The real on/off gate lives in
+        // +[LNURLProtocol canInitWithRequest:], which bails out immediately
+        // when the inspector is disabled.
         NSArray *protocolClasses = config.protocolClasses;
         if (!protocolClasses) {
             // nil = "use the global registry", where we also registered via

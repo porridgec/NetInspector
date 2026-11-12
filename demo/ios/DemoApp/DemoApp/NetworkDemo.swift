@@ -9,6 +9,7 @@
 //
 
 import Foundation
+import DemoKit
 
 enum DemoKind: String, CaseIterable, Identifiable {
     case getJSON = "GET JSON"
@@ -20,6 +21,8 @@ enum DemoKind: String, CaseIterable, Identifiable {
     case redirect = "GET 重定向 ×3"
     case slow = "GET 慢请求 (4s)"
     case connError = "GET 不可达主机 (报错)"
+    case spmEarly = "GET via SPM 包 · 早建 session"
+    case spmEphemeral = "GET via SPM 包 · ephemeral"
 
     var id: String { rawValue }
 
@@ -34,6 +37,8 @@ enum DemoKind: String, CaseIterable, Identifiable {
         case .redirect: return "302 链 · 每跳单独记录"
         case .slow: return "ephemeral 配置"
         case .connError: return "TEST-NET 地址 · 超时报错"
+        case .spmEarly: return "包内 static let session（-start 前已创建）"
+        case .spmEphemeral: return "包内调用时新建 ephemeral session"
         }
     }
 }
@@ -64,6 +69,8 @@ final class NetworkDemo: @unchecked Sendable {
         case .redirect: return try await get("https://httpbin.org/redirect/3", session: defaultSession)
         case .slow: return try await get("https://httpbin.org/delay/4", session: ephemeralSession)
         case .connError: return try await get("https://192.0.2.1/unreachable", session: errorSession)
+        case .spmEarly: return try await DemoKit.fetchViaEarlySession()
+        case .spmEphemeral: return try await DemoKit.fetchViaEphemeralSession()
         }
     }
 
