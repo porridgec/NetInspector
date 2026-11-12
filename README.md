@@ -228,6 +228,24 @@ inspector.offlineQueueCapacity = 500;           // 断网时磁盘队列容量�
 3. Debug Info.plist 是否加了 ATS 例外？（控制台会有 ATS 报错日志）
 4. macOS 防火墙是否放行了 node 的入站连接？
 
+**Body 显示不完整 / 提示「已截断」？**
+
+Body 经过三层独立上限，缺哪层调哪层（Dashboard 横幅会标明**是谁截断的**）：
+
+| 层 | 参数 | 默认 | 说明 |
+| --- | --- | --- | --- |
+| iOS 捕获 | `maxBodyCaptureBytes` | 256 KiB | `-start` 前设置；二进制以 base64 传输会膨胀 4/3 |
+| iOS 流式缓冲 | `maxStreamBodyBytes` | 32 MiB | `uploadTask`/multipart 走流式路径，**捕获量不会超过它**；要抓 >32 MiB 的上传需同时调大 |
+| 服务端存储 | `MAX_BODY_BYTES`（env） | 256 KiB | 环形缓冲区内所有事件的内存占用 = MAX_LOGS × MAX_BODY_BYTES，调大时建议同时调小 `MAX_LOGS` |
+
+```bash
+# 例：完整保留 128 MiB body（传输层消息上限会自动跟随，无需另设）
+MAX_BODY_BYTES=$((128*1024*1024)) MAX_LOGS=50 npm start
+```
+
+> 服务端发生截断时控制台会打印醒目告警（前 3 次）；Dashboard 横幅区分
+> 「服务端存储上限」/「客户端捕获上限」并显示 `已捕获 / 原始大小`。
+
 **手机开着代理（Wi-Fi 手动代理 / Shadowrocket / Surge / 公司网关）导致 `-1011 從伺服器傳來錯誤的回應`？**
 
 原因：代理把 WebSocket 的 `Upgrade` 请求当普通 HTTP 处理，返回了错误页而不是 `101` 升级。客户端已内置**双重应对**，开代理也能用：

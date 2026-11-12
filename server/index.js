@@ -20,6 +20,9 @@ const PORT = parseInt(process.env.PORT || '9090', 10);
 const HOST = process.env.HOST || '0.0.0.0';
 const MAX_LOGS = parseInt(process.env.MAX_LOGS || '500', 10);
 const MAX_BODY_BYTES = parseInt(process.env.MAX_BODY_BYTES || String(256 * 1024), 10);
+// 单条消息传输上限自动跟随存储上限：二进制 body 以 base64 传输会膨胀 4/3，
+// 再留 JSON 结构开销，取 2 倍 + 16 MiB 余量，避免传输层成为隐形暗坑。
+const MAX_MESSAGE_BYTES = MAX_BODY_BYTES * 2 + 16 * 1024 * 1024;
 
 const store = new LogStore({ capacity: MAX_LOGS, maxBodyBytes: MAX_BODY_BYTES });
 
@@ -73,7 +76,7 @@ app.delete('/api/logs', (_req, res) => {
 /* HTTP fallback transport for devices whose network blocks WebSocket
  * upgrades (phone proxies, transparent middleboxes) but still forwards
  * plain HTTP POSTs. Same message format as the WebSocket channel. */
-app.post('/log', express.json({ limit: '32mb' }), (req, res) => {
+app.post('/log', express.json({ limit: MAX_MESSAGE_BYTES }), (req, res) => {
   const info = upsertHttpDevice(req.body);
   const reply = ingestMessage(req.body, info);
   res.json(reply || { ok: true });
@@ -82,7 +85,7 @@ app.post('/log', express.json({ limit: '32mb' }), (req, res) => {
 /* ------------------------------ WebSocket ------------------------------ */
 
 const server = http.createServer(app);
-const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 * 1024 });
+const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_MESSAGE_BYTES });
 
 const devices = new Map(); // ws -> device info
 const httpDevices = new Map(); // clientId -> device info (HTTP fallback, TTL-based)
@@ -264,6 +267,7 @@ wss.on('close', () => clearInterval(hb));
 
 server.listen(PORT, HOST, () => {
   const ips = localIPv4s();
+  const fmt = (n) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(0)} MiB` : `${Math.round(n / 1024)} KiB`);
   console.log('');
   console.log('  ⚡ NetInspector server is running');
   console.log('  ───────────────────────────────────────────────');
@@ -273,7 +277,7 @@ server.listen(PORT, HOST, () => {
     console.log(`  iOS host  :  LNNetInspector.shared.host = @"${ip}"   port = ${PORT}`);
   }
   if (!ips.length) console.log('  ⚠ no LAN IPv4 address found — is Wi-Fi / Ethernet connected?');
-  console.log(`  Buffer    :  last ${MAX_LOGS} requests · bodies capped at ${Math.round(MAX_BODY_BYTES / 1024)} KiB`);
+  console.log(`  Buffer    :  last ${MAX_LOGS} requests · body 存储上限 ${fmt(MAX_BODY_BYTES)} (env MAX_BODY_BYTES 可调大，同时建议调小 MAX_LOGS)`);
   console.log('  Tip       :  npm run demo  → replay fake traffic without an iOS device');
   console.log('');
 });

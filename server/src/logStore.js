@@ -23,6 +23,7 @@ class LogStore {
     this.seq = 0;
     this.totalReceived = 0;
     this.startedAt = Date.now();
+    this.serverTruncationWarnings = 0;
   }
 
   /** Normalize a raw event coming from a device, then store it. */
@@ -66,6 +67,16 @@ class LogStore {
     };
   }
 
+  /** 首几次服务端截断时在控制台醒目提示（避免刷屏） */
+  warnServerTruncation() {
+    if (this.serverTruncationWarnings >= 3) return;
+    this.serverTruncationWarnings += 1;
+    const kb = Math.round(this.maxBodyBytes / 1024);
+    console.warn(`[!] ⚠ body 在服务端存储上限处被截断（${kb} KiB）。需要完整 body 请调大后重启：`);
+    console.warn(`    MAX_BODY_BYTES=$((128*1024*1024)) npm start   # 128 MiB 示例`);
+    console.warn(`    同时建议调小 MAX_LOGS（如 100），防止内存占用过大`);
+  }
+
   _normalize(raw, client) {
     const e = (raw && typeof raw === 'object' && !Array.isArray(raw)) ? { ...raw } : {};
 
@@ -98,6 +109,7 @@ class LogStore {
       const encKey = `${side}BodyEncoding`;
       const sizeKey = `${side}BodySize`;
       const truncKey = `${side}BodyTruncated`;
+      const truncByKey = `${side}BodyTruncatedBy`;
 
       if (typeof e[b] === 'string' && e[b].length) {
         if (e[encKey] !== 'base64') e[encKey] = 'text';
@@ -105,6 +117,8 @@ class LogStore {
         if (this.maxBodyBytes > 0 && e[b].length > this.maxBodyBytes) {
           e[b] = e[b].slice(0, this.maxBodyBytes);
           e[truncKey] = true;
+          e[truncByKey] = 'server';
+          this.warnServerTruncation();
         }
       } else {
         e[b] = '';
@@ -112,6 +126,8 @@ class LogStore {
         e[sizeKey] = num(e[sizeKey], 0);
       }
       e[truncKey] = !!e[truncKey];
+      // 标记截断来源：server（存储上限）还是 client（捕获上限）
+      if (e[truncKey] && !e[truncByKey]) e[truncByKey] = 'client';
     }
 
     e.requestHeaders = flattenHeaders(e.requestHeaders);

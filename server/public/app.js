@@ -488,7 +488,14 @@
     const actions = el('span', { class: 'right' });
 
     if (truncated) {
-      wrap.append(el('div', { class: 'banner', text: `Body truncated at capture limit — showing the first ${fmtBytes(body.length)}.` }));
+      const by = e[`${side}BodyTruncatedBy`];
+      const who = by === 'server'
+        ? '服务端存储上限 MAX_BODY_BYTES（重启服务端时调大，如 MAX_BODY_BYTES=$((128*1024*1024)) npm start）'
+        : '客户端捕获上限 maxBodyCaptureBytes（iOS 端 -start 前调大）';
+      wrap.append(el('div', {
+        class: 'banner',
+        text: `⚠ Body 已截断（${who}）— 显示前 ${fmtBytes(body.length)} / 原始 ${fmtBytes(size)}`,
+      }));
     }
 
     // ---- multipart/form-data (request or response, text or base64) ----
