@@ -92,6 +92,14 @@
   </main>
 
   <div id="toast" hidden></div>
+  <div id="authError" hidden>
+    <div class="authCard">
+      <h2>🔒 需要访问令牌</h2>
+      <p>服务端已启用 TOKEN 访问控制。</p>
+      <p>请通过带令牌的地址打开：<br><code class="authUrl"></code></p>
+      <p class="dim">（由服务端启动横幅打印，形如 <code>http://192.168.x.x:9090/?token=…</code>）</p>
+    </div>
+  </div>
   <script src="multipart.js"></script>
   <script src="app.js"></script>
 </body>

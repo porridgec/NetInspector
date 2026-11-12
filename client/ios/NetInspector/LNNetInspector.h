@@ -39,6 +39,11 @@ NS_ASSUME_NONNULL_BEGIN
 /// The dashboard host itself is always ignored (feedback-loop protection).
 @property (nonatomic, copy) NSArray<NSString *> *ignoredHosts;
 
+/// Optional access token — must match the Mac server's TOKEN env var
+/// (TOKEN=xxx npm start). Sent as ?token= on the WebSocket URL and as
+/// the x-ni-token header on the HTTP fallback channel.
+@property (nonatomic, copy, nullable) NSString *authToken;
+
 /// Max bytes kept per request/response body (display only). Default 256 KiB.
 @property (nonatomic, assign) NSUInteger maxBodyCaptureBytes;
 

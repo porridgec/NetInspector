@@ -9,6 +9,7 @@ function flattenHeaders(h) {
   const out = {};
   if (!h || typeof h !== 'object' || Array.isArray(h)) return out;
   for (const [k, v] of Object.entries(h)) {
+    if (k === '__proto__' || k === 'constructor' || k === 'prototype') continue;
     out[k] = Array.isArray(v) ? v.join(', ') : (v == null ? '' : String(v));
   }
   return out;

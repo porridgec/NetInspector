@@ -28,6 +28,8 @@ struct ContentView: View {
                 .autocorrectionDisabled()
                 .font(.system(.footnote).monospaced())
             Stepper("端口 \(store.port)", value: $store.port, in: 1024...65535)
+            SecureField("访问令牌 token（服务端设置了 TOKEN 时必填）", text: $store.token)
+                .autocorrectionDisabled()
             HStack {
                 Button("应用并重启") { store.restart() }
                     .buttonStyle(.borderedProminent)

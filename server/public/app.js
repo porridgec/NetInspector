@@ -11,13 +11,44 @@
     for (const [k, v] of Object.entries(attrs)) {
       if (v == null) continue;
       if (k === 'class') node.className = v;
-      else if (k === 'text') node.textContent = v;
-      else if (k === 'html') node.innerHTML = v;
+      else if (k === 'text') node.textContent = v; // 文本一律走 textContent（XSS 安全）
       else if (k.startsWith('on')) node.addEventListener(k.slice(2), v);
       else node.setAttribute(k, v);
     }
     for (const c of children) if (c != null) node.append(c);
     return node;
+  }
+
+  /* ------------------------------ auth ------------------------------ */
+
+  const TOKEN = (() => {
+    try {
+      const fromUrl = new URLSearchParams(location.search).get('token');
+      if (fromUrl) { sessionStorage.setItem('ni.token', fromUrl); return fromUrl; }
+      return sessionStorage.getItem('ni.token') || '';
+    } catch { return ''; }
+  })();
+
+  const withToken = (url) => {
+    if (!TOKEN) return url;
+    return url + (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(TOKEN);
+  };
+
+  async function fetchAPI(url, options) {
+    const response = await fetch(withToken(url), options);
+    if (response.status === 401) {
+      showAuthError();
+      throw new Error('unauthorized');
+    }
+    return response;
+  }
+
+  function showAuthError() {
+    const node = $('#authError');
+    if (!node) return;
+    const code = node.querySelector('.authUrl');
+    if (code) code.textContent = `${location.origin}/?token=你的令牌`;
+    node.hidden = false;
   }
 
   const fmtBytes = (n) => {
@@ -229,7 +260,7 @@
     const summary = state.byId.get(id);
     if (!full) {
       try {
-        const r = await fetch(`/api/logs/${encodeURIComponent(id)}`);
+        const r = await fetchAPI(`/api/logs/${encodeURIComponent(id)}`);
         if (r.ok) { full = await r.json(); state.detailCache.set(id, full); }
       } catch { /* offline */ }
     }
@@ -249,8 +280,10 @@
       const loc = e.responseHeaders['Location'] || e.responseHeaders['location'];
       if (loc) ds.append(el('span', { class: 'meta', text: `→ ${loc}`, title: loc }));
     }
-    $('#dDur').innerHTML = `<b>${fmtDur(e.durationMs)}</b>`;
-    $('#dSize').innerHTML = `<b>${fmtBytes(e.responseBodySize || 0)}</b>`;
+    $('#dDur').textContent = '';
+    $('#dDur').append(el('b', { text: fmtDur(e.durationMs) }));
+    $('#dSize').textContent = '';
+    $('#dSize').append(el('b', { text: fmtBytes(e.responseBodySize || 0) }));
     const url = $('#dUrl'); url.textContent = e.url || ''; url.title = e.url || '';
     renderTab();
   }
@@ -381,6 +414,10 @@
     return imagePreviewEl(p.data, partType, p.disposition.filename, p.truncated);
   }
 
+  /** 图片 mime 白名单：仅栅格格式允许进 data: URL（拒绝 svg 等可执行内容） */
+  const SAFE_IMAGE_RE = /^image\/(png|jpe?g|gif|webp|bmp|avif|ico|heic|heif|tiff?)$/i;
+  const isSafeImageMime = (mime) => SAFE_IMAGE_RE.test(String(mime || '').split(';')[0].trim());
+
   /** Image preview with graceful degradation (truncated / undecodable data). */
   function imagePreviewEl(bytes, mime, name, truncated) {
     if (truncated) {
@@ -433,7 +470,7 @@
             onclick: () => downloadBytes(p.data, p.disposition.filename || `part-${i + 1}.bin`, partType),
           }));
         card.append(tools);
-        if (/^image\//.test(partType) && p.size < 8 * 1024 * 1024) {
+        if (isSafeImageMime(partType) && p.size < 8 * 1024 * 1024) {
           card.append(partImagePreview(p, partType));
         }
         card.append(el('pre', { class: 'hex', text: hexdump(p.data, 160) }));
@@ -547,7 +584,7 @@
       let u8 = null;
       try { u8 = b64ToU8(body); } catch { /* invalid base64 */ }
       if (u8) {
-        if (/^image\//.test(mime) && u8.length < 8 * 1024 * 1024) {
+        if (isSafeImageMime(mime) && u8.length < 8 * 1024 * 1024) {
           box.append(imagePreviewEl(u8, mime, 'preview', truncated));
         }
         box.append(el('pre', { class: 'hex', text: hexdump(u8) }));
@@ -697,7 +734,7 @@
   function connect() {
     setConn('connecting', 'connecting…');
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    ws = new WebSocket(`${proto}://${location.host}/dashboard`);
+    ws = new WebSocket(`${proto}://${location.host}/dashboard${TOKEN ? `?token=${encodeURIComponent(TOKEN)}` : ''}`);
 
     ws.onopen = () => { retries = 0; setConn('online', 'live'); };
     ws.onmessage = (ev) => {
@@ -708,8 +745,9 @@
       else if (m.type === 'clients') setClients(m.clients || []);
       else if (m.type === 'hello') setClients(m.clients || []);
     };
-    ws.onclose = () => {
+    ws.onclose = (ev) => {
       setConn('offline', 'offline');
+      if (ev.code === 1006 && TOKEN) showAuthError();
       const delay = Math.min(15000, 500 * 2 ** retries++);
       setTimeout(connect, delay);
     };
@@ -779,7 +817,7 @@
     }
 
     $('#clearBtn').addEventListener('click', async () => {
-      try { await fetch('/api/logs', { method: 'DELETE' }); } catch { /* ignore */ }
+      try { await fetchAPI('/api/logs', { method: 'DELETE' }); } catch { /* ignore */ }
       clearAll(); // optimistic; server broadcast is idempotent
     });
 
@@ -872,7 +910,7 @@
     bindUI();
     initSplitter();
     try {
-      const r = await fetch('/api/logs?limit=1000');
+      const r = await fetchAPI('/api/logs?limit=1000');
       const j = await r.json();
       for (const ev of (j.logs || []).reverse()) {
         state.events.push(ev);

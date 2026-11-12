@@ -14,7 +14,7 @@ open demo/ios/DemoApp/DemoApp.xcodeproj
 # ③ 选择模拟器或真机，Cmd+R 运行
 ```
 
-App 首页 → 「Mac 服务端」→ 填入横栏 IP → 「应用并重启」→ 浏览器打开 `http://<ip>:9090`，然后点请求按钮即可实时看到流量。
+App 首页 → 「Mac 服务端」→ 填入横栏 IP（服务端启用了 `TOKEN` 时再填访问令牌）→ 「应用并重启」→ 浏览器打开 `http://<ip>:9090/?token=<令牌>`，然后点请求按钮即可实时看到流量。
 
 ## 覆盖的请求形态（对应 Dashboard 各视图）
 

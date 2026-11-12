@@ -168,6 +168,9 @@ static NSInteger const kLNWsFailuresBeforeFallback = 2;
     components.host = self.host;
     components.port = @(self.port);
     components.path = @"/log";
+    if (self.authToken.length > 0) {
+        components.queryItems = @[[NSURLQueryItem queryItemWithName:@"token" value:self.authToken]];
+    }
     NSURL *url = [components URL];
     if (!url) {
         NSLog(@"[NetInspector] ⚠ invalid server URL (host=%@ port=%lu)", self.host, (unsigned long)self.port);
@@ -339,6 +342,9 @@ static NSInteger const kLNWsFailuresBeforeFallback = 2;
                                                          timeoutInterval:10.0];
     request.HTTPMethod = @"POST";
     [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+    if (self.authToken.length > 0) {
+        [request setValue:self.authToken forHTTPHeaderField:@"x-ni-token"];
+    }
     request.HTTPBody = [NSJSONSerialization isValidJSONObject:payload]
                      ? [NSJSONSerialization dataWithJSONObject:payload options:0 error:nil]
                      : nil;

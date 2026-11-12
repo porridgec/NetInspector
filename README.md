@@ -71,6 +71,24 @@ open demo/ios/DemoApp/DemoApp.xcodeproj
 
 ## 二、Mac 端使用说明
 
+### 安全模型（重要）
+
+NetInspector 抓取的是 **App 的完整请求/响应**——包含登录 token、Cookie、密码等敏感数据。公网/多人局域网部署前请务必了解：
+
+| 防护 | 说明 |
+| --- | --- |
+| **访问令牌（推荐）** | `TOKEN=your-secret npm start`。启用后 Dashboard、REST API、WebSocket、HTTP 回退通道**全部**需要令牌（浏览器打开 `http://ip:9090/?token=your-secret`；iOS 端设置 `inspector.authToken`）。未设置时服务端启动横幅会给出告警。 |
+| **默认仅监听局域网** | 服务监听 `0.0.0.0`（局域网可访问）。如需更严格：`HOST=127.0.0.1` 仅本机（配 iPhone 真机时不可用）。 |
+| **DNS rebinding 防护** | 校验 `Host` 头（仅允许 localhost / IP 字面量 / `*.local` / 本机主机名）。 |
+| **跨站 WebSocket 防护** | 校验 `Origin`：浏览器页面必须同主机，防任意网页跨站偷读抓包数据。 |
+| **XSS 防护** | Dashboard 所有不可信内容一律 `textContent` 渲染；响应带严格 CSP；图片预览仅允许栅格格式 mime；事件字段过滤 `__proto__` 防原型污染。 |
+| **终端注入防护** | 控制台输出剥离控制字符（防 ANSI 逃逸注入）。 |
+| **传输加密** | 局域网明文 `ws://` / `http://`。仅建议在可信网络使用；不要在公共 Wi-Fi 上抓取敏感流量。 |
+| **设备端落地数据** | 离线队列文件位于 App `Caches/netinspector.queue/`（明文 JSON），调试结束可删除。 |
+
+> 原则：这是**本地调试工具**，请只在你信任的局域网内运行，并始终设置 TOKEN。
+
+
 ```bash
 cd server
 npm install

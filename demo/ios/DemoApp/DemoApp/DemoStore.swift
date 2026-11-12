@@ -10,12 +10,16 @@ import SwiftUI
 final class DemoStore: ObservableObject {
     private static let hostKey = "demo.serverHost"
     private static let portKey = "demo.serverPort"
+    private static let tokenKey = "demo.serverToken"
 
     @Published var host: String {
         didSet { UserDefaults.standard.set(host, forKey: Self.hostKey) }
     }
     @Published var port: Int {
         didSet { UserDefaults.standard.set(port, forKey: Self.portKey) }
+    }
+    @Published var token: String {
+        didSet { UserDefaults.standard.set(token, forKey: Self.tokenKey) }
     }
     @Published var running = false
     @Published var autoFire = false {
@@ -28,6 +32,7 @@ final class DemoStore: ObservableObject {
     init() {
         host = UserDefaults.standard.string(forKey: Self.hostKey) ?? ""
         port = UserDefaults.standard.object(forKey: Self.portKey) as? Int ?? 9090
+        token = UserDefaults.standard.string(forKey: Self.tokenKey) ?? ""
         running = LNNetInspector.shared().isRunning()
         if running {
             append("NetInspector 已随 App 启动 · ws://\(host.isEmpty ? "<未配置 IP>" : host):\(port)")
@@ -50,8 +55,10 @@ final class DemoStore: ObservableObject {
         let inspector = LNNetInspector.shared()
         let savedHost = UserDefaults.standard.string(forKey: hostKey) ?? ""
         let savedPort = UserDefaults.standard.object(forKey: portKey) as? Int ?? 9090
+        let savedToken = UserDefaults.standard.string(forKey: tokenKey) ?? ""
         if !savedHost.isEmpty { inspector.host = savedHost }
         inspector.port = UInt(max(1, savedPort))
+        if !savedToken.isEmpty { inspector.authToken = savedToken }
         inspector.start()
         if savedHost.isEmpty {
             NSLog("[NetInspector] 尚未配置 Mac IP —— 在 Demo 首页填入服务端横栏里的地址后点「应用并重启」")
@@ -70,6 +77,7 @@ final class DemoStore: ObservableObject {
         inspector.stop()
         inspector.host = host.trimmingCharacters(in: .whitespaces)
         inspector.port = UInt(max(1, port))
+        inspector.authToken = token.trimmingCharacters(in: .whitespaces)
         inspector.start()
         running = inspector.isRunning()
         append("⟳ NetInspector → ws://\(inspector.host):\(port) · \(running ? "运行中" : "未启动")")
