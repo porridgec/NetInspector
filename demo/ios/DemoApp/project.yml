@@ -1,0 +1,32 @@
+name: DemoApp
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+targets:
+  DemoApp:
+    type: application
+    platform: iOS
+    sources:
+      - path: DemoApp
+        excludes:
+          - "Info.plist"
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.netinspector.demo
+        GENERATE_INFOPLIST_FILE: "NO"
+        INFOPLIST_FILE: DemoApp/Info.plist
+        SWIFT_OBJC_BRIDGING_HEADER: DemoApp/DemoApp-Bridging-Header.h
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+        MARKETING_VERSION: "1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        SWIFT_EMIT_LOC_STRINGS: "NO"
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks"
+    scheme:
+      testTargets: []

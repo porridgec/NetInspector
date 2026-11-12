@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NetInspector</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='7' fill='%235b9dff'/></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header id="toolbar">
+    <div class="brand"><span class="logo">◉</span>NetInspector</div>
+    <div id="conn" class="conn" title="WebSocket connection">
+      <span class="dot"></span><span id="connText">connecting…</span>
+    </div>
+    <input id="search" type="search" placeholder="Filter — text · method:GET · status:404 · status:5xx · host:api"
+           spellcheck="false" autocomplete="off">
+    <select id="methodFilter" title="Method filter">
+      <option value="">All methods</option>
+      <option>GET</option><option>POST</option><option>PUT</option>
+      <option>PATCH</option><option>DELETE</option><option>HEAD</option><option>OPTIONS</option>
+    </select>
+    <select id="statusFilter" title="Status filter">
+      <option value="">All status</option>
+      <option value="ok">2xx Success</option>
+      <option value="redirect">3xx Redirect</option>
+      <option value="client">4xx Client</option>
+      <option value="server">5xx Server</option>
+      <option value="error">Errors</option>
+    </select>
+    <button id="pauseBtn" class="btn" title="Pause live capture (Space)">⏸ Pause</button>
+    <button id="clearBtn" class="btn" title="Clear all captured requests">🧹 Clear</button>
+    <div class="spacer"></div>
+    <div id="clients" class="clients"></div>
+    <div id="stats" class="stats" title="shown / captured">0 / 0</div>
+  </header>
+
+  <main id="main">
+    <section id="listPane">
+      <div id="listScroller">
+        <table id="list">
+          <thead>
+            <tr>
+              <th class="c-method">Method</th>
+              <th class="c-path">URL</th>
+              <th class="c-status">Status</th>
+              <th class="c-dur">Time</th>
+              <th class="c-size">Size</th>
+              <th class="c-time">Clock</th>
+              <th class="c-dev" hidden>Device</th>
+            </tr>
+          </thead>
+          <tbody id="listBody"></tbody>
+        </table>
+        <div id="emptyList" class="emptyList">
+          Waiting for requests…
+          <div class="hint">iOS: <code>LNNetInspector.shared().host = "your-mac-ip"; [… start]</code><br>
+          No device? Run <code>npm run demo</code> on the server.</div>
+        </div>
+      </div>
+      <button id="followBtn" class="followBtn" hidden>↓ new requests</button>
+    </section>
+
+    <div id="splitter" title="Drag to resize · double-click to reset"></div>
+
+    <section id="detailPane">
+      <div id="detailEmpty" class="detailEmpty">
+        <div class="big">←</div>
+        Select a request to inspect
+      </div>
+      <div id="detail" hidden>
+        <div id="detailHead">
+          <div class="row1">
+            <span id="dMethod"></span>
+            <span id="dStatus"></span>
+            <span id="dDur" class="meta"></span>
+            <span id="dSize" class="meta" title="response body size"></span>
+            <span class="spacer"></span>
+            <button class="btn mini" id="copyUrlBtn">Copy URL</button>
+            <button class="btn mini" id="copyCurlBtn">Copy as cURL</button>
+          </div>
+          <div class="row2"><span id="dUrl"></span></div>
+        </div>
+        <nav id="tabs">
+          <button class="tab active" data-tab="overview">Overview</button>
+          <button class="tab" data-tab="request">Request</button>
+          <button class="tab" data-tab="response">Response</button>
+        </nav>
+        <div id="tabContent"></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" hidden></div>
+  <script src="multipart.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

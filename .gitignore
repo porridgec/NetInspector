@@ -1,0 +1,18 @@
+# Node
+server/node_modules/
+
+# Xcode / Swift
+build/
+DerivedData/
+xcuserdata/
+*.xcuserstate
+*.xcscmblueprint
+.swiftpm/
+.build/
+
+# macOS
+.DS_Store
+
+# 本地环境
+.env
+*.local

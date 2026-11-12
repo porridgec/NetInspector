@@ -1,0 +1,72 @@
+# NetInspector Demo App
+
+一个开箱即用的 SwiftUI 演示工程：集成了 NetInspector 客户端，一键触发各种形态的网络请求，在 Mac 端 Dashboard 里实时查看。
+
+## 运行
+
+```bash
+# ① Mac 端起服务（记住横幅里的 IP）
+cd server && npm start
+
+# ② 用 Xcode 打开 demo 工程
+open demo/ios/DemoApp/DemoApp.xcodeproj
+
+# ③ 选择模拟器或真机，Cmd+R 运行
+```
+
+App 首页 → 「Mac 服务端」→ 填入横栏 IP → 「应用并重启」→ 浏览器打开 `http://<ip>:9090`，然后点请求按钮即可实时看到流量。
+
+## 覆盖的请求形态（对应 Dashboard 各视图）
+
+| 按钮 | 形态 | Dashboard 看点 |
+| --- | --- | --- |
+| GET JSON | `URLSession.shared` | JSON 树形折叠视图 |
+| POST JSON | `.default` 配置 | 请求/响应 JSON、Headers |
+| POST 表单 | `.ephemeral` 配置 | urlencoded 参数解析 |
+| POST multipart | `uploadTask`（流式 body） | **Parts 视图**：字段/文件名/类型，JPEG 图片直接预览 |
+| GET 图片 | `.ephemeral` 配置 | 二进制 Hex 预览 + 图片渲染 + 下载 |
+| GET 404 | 状态码 | 列表橙色状态标记 |
+| GET 重定向 ×3 | 302 链 | **每跳单独成条**（Charles 行为） |
+| GET 慢请求 | 4s 延迟 | 耗时列分级着色 |
+| GET 不可达 | 超时报错 | ERR 标记 + Overview 错误信息 |
+
+另有「自动连发」（每 3 秒随机）和「🔥 全部来一发」。
+
+## 自动化 / UI 测试
+
+支持启动参数（`xcrun simctl launch` 或 Xcode scheme 的 Arguments）：
+
+- `-ni-autofire`：启动即自动连发
+- `-ni-fireall`：启动 2 秒后每种请求各触发一次
+
+App 的服务端地址持久化在 `UserDefaults`（`demo.serverHost` / `demo.serverPort`），可预先写入：
+
+```bash
+xcrun simctl spawn <UDID> defaults write com.example.netinspector.demo demo.serverHost 127.0.0.1
+```
+
+## 结构
+
+```
+DemoApp/
+├── project.yml                    # xcodegen 配置（重新生成工程用）
+├── DemoApp.xcodeproj              # 已生成，直接打开即可
+└── DemoApp/
+    ├── DemoAppApp.swift           # @main，App 启动即 start NetInspector
+    ├── ContentView.swift          # 控制台 UI
+    ├── DemoStore.swift            # 状态/配置/自动连发
+    ├── NetworkDemo.swift          # 各种请求用例（不同 session 形态）
+    ├── DemoAssets.swift           # 真实 JPEG（multipart 演示用，生成产物）
+    ├── DemoApp-Bridging-Header.h  # #import "NetInspector/NetInspector.h"
+    ├── Info.plist                 # 含 ATS 例外（demo 专用）
+    └── NetInspector/              # 客户端模块快照（源：client/ios/NetInspector）
+```
+
+> ⚠️ `NetInspector/` 是 `client/ios/NetInspector/` 的快照拷贝（保证 demo 目录自包含可分享）。
+> 更新客户端代码后请重新拷贝：`cp client/ios/NetInspector/* demo/ios/DemoApp/DemoApp/NetInspector/`
+
+## 已在真机/模拟器环境验证
+
+- iPhone 17 模拟器 (iOS 26.2) + macOS Node 服务端
+- 全部 9 种形态捕获 ✅、重定向逐跳 ✅、multipart Parts 视图 ✅、图片预览 ✅、
+  错误事件 ✅、断线落盘重连冲刷 ✅
