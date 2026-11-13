@@ -12,6 +12,15 @@ final class DemoStore: ObservableObject {
     private static let portKey = "demo.serverPort"
     private static let tokenKey = "demo.serverToken"
 
+    /// 供静态 bootstrap 绑定回调时触达当前实例
+    private static weak var activeStore: DemoStore?
+
+    struct ConnectionState: Equatable {
+        let connected: Bool
+        let reason: String?
+        static let disconnected = ConnectionState(connected: false, reason: nil)
+    }
+
     @Published var host: String {
         didSet { UserDefaults.standard.set(host, forKey: Self.hostKey) }
     }
@@ -21,6 +30,7 @@ final class DemoStore: ObservableObject {
     @Published var token: String {
         didSet { UserDefaults.standard.set(token, forKey: Self.tokenKey) }
     }
+    @Published private(set) var connection = ConnectionState.disconnected
     @Published var running = false
     @Published var autoFire = false {
         didSet { if oldValue != autoFire { autoFire ? startTimer() : stopTimer() } }
@@ -33,7 +43,11 @@ final class DemoStore: ObservableObject {
         host = UserDefaults.standard.string(forKey: Self.hostKey) ?? ""
         port = UserDefaults.standard.object(forKey: Self.portKey) as? Int ?? 9090
         token = UserDefaults.standard.string(forKey: Self.tokenKey) ?? ""
-        running = LNNetInspector.shared().isRunning()
+        Self.activeStore = self
+        let inspector = LNNetInspector.shared()
+        running = inspector.isRunning()
+        connection = ConnectionState(connected: inspector.wsConnected, reason: nil)
+        Self.bindConnectionObserver()
         if running {
             append("NetInspector 已随 App 启动 · ws://\(host.isEmpty ? "<未配置 IP>" : host):\(port)")
         }
@@ -59,11 +73,21 @@ final class DemoStore: ObservableObject {
         if !savedHost.isEmpty { inspector.host = savedHost }
         inspector.port = UInt(max(1, savedPort))
         if !savedToken.isEmpty { inspector.authToken = savedToken }
+        bindConnectionObserver()
         inspector.start()
         if savedHost.isEmpty {
             NSLog("[NetInspector] 尚未配置 Mac IP —— 在 Demo 首页填入服务端横栏里的地址后点「应用并重启」")
         }
         #endif
+    }
+
+    /// 绑定门面的连接状态回调（门面已在主线程回调；幂等，可重复调用）
+    nonisolated static func bindConnectionObserver() {
+        LNNetInspector.shared().onConnectionChange = { connected, reason in
+            DispatchQueue.main.async {
+                Self.activeStore?.applyConnection(connected: connected, reason: reason as String?)
+            }
+        }
     }
 
     // MARK: - Inspector 控制
@@ -78,6 +102,7 @@ final class DemoStore: ObservableObject {
         inspector.host = host.trimmingCharacters(in: .whitespaces)
         inspector.port = UInt(max(1, port))
         inspector.authToken = token.trimmingCharacters(in: .whitespaces)
+        Self.bindConnectionObserver()
         inspector.start()
         running = inspector.isRunning()
         append("⟳ NetInspector → ws://\(inspector.host):\(port) · \(running ? "运行中" : "未启动")")
@@ -87,7 +112,17 @@ final class DemoStore: ObservableObject {
     func stop() {
         LNNetInspector.shared().stop()
         running = false
+        applyConnection(connected: false, reason: nil)
         append("■ NetInspector 已停止")
+    }
+
+    func applyConnection(connected: Bool, reason: String?) {
+        connection = ConnectionState(connected: connected, reason: reason)
+        if connected {
+            append("✓ 已连接 Mac（WebSocket 实时通道）")
+        } else if running {
+            append(reason.map { "✗ 连接断开：\($0)（自动重连中）" } ?? "✗ 连接已断开（自动重连中）")
+        }
     }
 
     // MARK: - 请求触发

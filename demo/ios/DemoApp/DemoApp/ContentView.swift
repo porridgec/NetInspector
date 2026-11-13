@@ -8,6 +8,16 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject var store: DemoStore
 
+    private var statusColor: Color {
+        guard store.running else { return .gray }
+        return store.connection.connected ? .green : .orange
+    }
+
+    private var statusText: String {
+        guard store.running else { return "未启动" }
+        return store.connection.connected ? "已连接" : "重连中…"
+    }
+
     var body: some View {
         NavigationView {
             Form {
@@ -40,11 +50,16 @@ struct ContentView: View {
                 }
                 Spacer()
                 Circle()
-                    .fill(store.running ? Color.green : Color.gray)
+                    .fill(statusColor)
                     .frame(width: 10, height: 10)
-                Text(store.running ? "运行中" : "未启动")
+                Text(statusText)
                     .font(.caption)
                     .foregroundColor(.secondary)
+            }
+            if store.running && !store.connection.connected, let reason = store.connection.reason {
+                Text("未连接：\(reason)")
+                    .font(.caption2)
+                    .foregroundColor(.orange)
             }
             Toggle("自动连发（每 3 秒随机请求）", isOn: $store.autoFire)
             Text("① Mac: cd server && npm start  ② 把横栏 IP 填到上面  ③ 浏览器打开 http://<ip>:9090")

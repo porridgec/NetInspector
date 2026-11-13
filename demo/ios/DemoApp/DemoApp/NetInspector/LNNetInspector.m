@@ -28,6 +28,7 @@ static NSUInteger const kLNDrainBatchSize = 32;
 @property (nonatomic, assign) BOOL draining;
 @property (nonatomic, assign) NSInteger handshakeFailures;
 @property (nonatomic, assign) BOOL httpFallbackActive;   // POST /log 回退通道
+@property (nonatomic, assign) BOOL wsConnected;           // 供 onConnectionChange 去重
 @property (nonatomic, strong, nullable) NSURLSession *httpSession;
 @property (nonatomic, copy) NSString *clientId;
 @property (nonatomic, copy) NSString *deviceLabel;
@@ -183,6 +184,7 @@ static NSInteger const kLNWsFailuresBeforeFallback = 2;
     __weak typeof(self) weakSelf = self;
     client.onOpen = ^{
         [weakSelf markConnected];
+        [weakSelf notifyConnectionChange:YES reason:nil];
         [weakSelf drainOfflineQueue];
     };
     client.onMessage = ^(NSDictionary *message) {
@@ -190,10 +192,24 @@ static NSInteger const kLNWsFailuresBeforeFallback = 2;
     };
     client.onClose = ^(NSError *error) {
         [weakSelf noteSocketFailure:error];
+        [weakSelf notifyConnectionChange:NO reason:error.localizedDescription];
     };
 
     self.wsClient = client;
     [client open];
+}
+
+/// 连接状态变化 → 主线程回调（供 UI 展示）
+- (void)notifyConnectionChange:(BOOL)connected reason:(NSString * _Nullable)reason {
+    dispatch_async(self.internalQueue, ^{
+        if (self.wsConnected == connected) return;
+        self.wsConnected = connected;
+        if (self.onConnectionChange) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                self.onConnectionChange(connected, reason);
+            });
+        }
+    });
 }
 
 - (void)markConnected {

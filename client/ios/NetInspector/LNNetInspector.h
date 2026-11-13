@@ -44,6 +44,13 @@ NS_ASSUME_NONNULL_BEGIN
 /// the x-ni-token header on the HTTP fallback channel.
 @property (nonatomic, copy, nullable) NSString *authToken;
 
+/// 连接状态变化回调（WebSocket 打开/关闭时触发，主线程调用）。
+/// reason 为关闭原因（nil = 正常/本地关闭）。
+@property (nonatomic, copy, nullable) void (^onConnectionChange)(BOOL connected, NSString * _Nullable reason);
+
+/// 当前 WebSocket 连接状态（只读快照；实时变化请用 onConnectionChange）
+@property (nonatomic, readonly) BOOL wsConnected;
+
 /// Max bytes kept per request/response body (display only). Default 256 KiB.
 @property (nonatomic, assign) NSUInteger maxBodyCaptureBytes;
 

@@ -23,7 +23,7 @@
 
 /* Begin PBXFileReference section */
 		06C9E3AC1B12A9832A7EDD2A /* NetworkDemo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkDemo.swift; sourceTree = "<group>"; };
-		154FAE636D5E23DF886F3868 /* DemoApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DemoApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		154FAE636D5E23DF886F3868 /* DemoApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DemoApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		165BA7E6C725C58C9D968134 /* DemoKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DemoKit; path = ../DemoKit; sourceTree = SOURCE_ROOT; };
 		51DEAD8E7F0261F1C8FA0AAE /* DemoAssets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoAssets.swift; sourceTree = "<group>"; };
 		716CBEE645A5BC3E0D9A73ED /* LNNetInspector.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LNNetInspector.h; sourceTree = "<group>"; };
@@ -324,9 +324,13 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2C76VL32CX;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = DemoApp/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.netinspector.demo;
 				SDKROOT = iphoneos;
@@ -343,9 +347,13 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 2C76VL32CX;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = DemoApp/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.netinspector.demo;
 				SDKROOT = iphoneos;
