@@ -272,6 +272,12 @@ body.rb-selecting * { user-select: none !important; }
   letter-spacing: 0.8px; color: var(--dim);
   display: flex; align-items: center; gap: 8px;
 }
+.sectionCard h3.collapsible { cursor: pointer; user-select: none; }
+.sectionCard h3.collapsible:hover { color: var(--text); }
+.sectionCard h3 .caret {
+  display: inline-block; width: 12px; flex: none;
+  color: var(--dimmer); text-transform: none;
+}
 .sectionCard h3 .right { margin-left: auto; display: flex; gap: 6px; text-transform: none; letter-spacing: 0; }
 
 .infoGrid { display: grid; grid-template-columns: 170px minmax(0, 1fr); gap: 5px 14px; font-size: 12.5px; }

@@ -620,17 +620,49 @@
     return entries.length ? tbl : el('div', { class: 'binaryDesc', text: '(no headers)' });
   }
 
+  /**
+   * 可折叠的 Headers 区块。
+   * 展开/收起状态是「全局」的：按 storageKey 持久化，所有请求共享同一状态。
+   */
+  function headersSection(title, headers, storageKey, defaultOpen) {
+    let open = defaultOpen;
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (saved === '1' || saved === '0') open = saved === '1';
+    } catch { /* ignore */ }
+
+    const card = el('div', { class: 'sectionCard' });
+    const head = el('h3', { class: 'collapsible', title: '点击展开 / 收起' });
+    const caret = el('span', { class: 'caret', text: open ? '▾' : '▸' });
+    head.append(caret, el('span', { text: title }));
+
+    const body = headersTable(headers);
+    body.style.display = open ? '' : 'none';
+
+    head.addEventListener('click', () => {
+      open = !open;
+      body.style.display = open ? '' : 'none';
+      caret.textContent = open ? '▾' : '▸';
+      try { localStorage.setItem(storageKey, open ? '1' : '0'); } catch { /* ignore */ }
+    });
+
+    card.append(head, body);
+    return card;
+  }
+
   function renderRequest(e) {
     const frag = document.createDocumentFragment();
     if (e.query) frag.append(sectionCard('Query Parameters', paramsTable(parseQuery(e.query))));
-    frag.append(sectionCard('Request Headers', headersTable(e.requestHeaders)));
+    // Request Headers：默认展开（全局状态，开关跨请求生效）
+    frag.append(headersSection('Request Headers', e.requestHeaders, 'ni.reqHeadersOpen', true));
     frag.append(sectionCard('Request Body', bodyPanel(e, 'request')));
     return frag;
   }
 
   function renderResponse(e) {
     const frag = document.createDocumentFragment();
-    frag.append(sectionCard('Response Headers', headersTable(e.responseHeaders)));
+    // Response Headers：默认收起（全局状态）
+    frag.append(headersSection('Response Headers', e.responseHeaders, 'ni.respHeadersOpen', false));
     frag.append(sectionCard('Response Body', bodyPanel(e, 'response')));
     return frag;
   }

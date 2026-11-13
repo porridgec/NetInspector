@@ -128,7 +128,7 @@ NetInspector 抓取的是 **App 的完整请求/响应**——包含登录 token
 - **暂停/继续**（空格键）、**自动跟随时滚动**（滚离底部暂停，出现 ↓ new requests 按钮）
 - **详情三 Tab**：
   - *Overview*：URL、状态、起止时间、耗时、Body 大小/类型（含截断来源）、错误信息、Query 参数
-  - *Request / Response*：Headers 表格、Body 查看器——
+  - *Request / Response*：Headers 表格（可点击标题箭头折叠；Request Headers 默认展开、Response Headers 默认收起，两者各维护一份全局状态并持久化）、Body 查看器——
     - JSON：树形折叠 + 语法着色、Raw 切换；**默认全部展开**，支持「全部展开 / 全部折叠」一键操作（折叠箭头可单独点击）；**长内容默认自动折行**，可用「折行」开关切换单行模式（偏好持久化）
     - **multipart/form-data：Parts 视图**（字段名 / 文件名 / Content-Type / 大小 / 截断标记；文本值内联；文件 Hex 预览、图片直接渲染、单独 Download；兼容引号 boundary 与 LF 换行）
     - 二进制：Hex 预览 + 下载；图片直接预览（栅格格式白名单）
