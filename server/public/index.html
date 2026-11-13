@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>NetInspector</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><circle cx='8' cy='8' r='7' fill='%235b9dff'/></svg>">
-  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="style.css?v=6">
 </head>
 <body>
   <header id="toolbar">
@@ -32,7 +32,7 @@
     <button id="clearBtn" class="btn" title="Clear all captured requests">🧹 Clear</button>
     <button id="colBtn" class="btn" title="显示 / 隐藏列">▾ 列</button>
     <div id="colMenu" hidden></div>
-    <button id="exportBtn" class="btn" title="导出日志：有勾选则导出勾选，否则导出当前筛选结果">⬇ 导出</button>
+    <button id="exportBtn" class="btn" title="导出日志：先勾选日志（表头复选框可全选当前筛选结果）">⬇ 导出</button>
     <button id="importBtn" class="btn" title="导入之前导出的 JSON 文件">⬆ 导入</button>
     <input id="importFile" type="file" accept="application/json,.json" hidden>
     <span id="selInfo" class="selInfo" hidden></span>
@@ -105,7 +105,7 @@
       </p>
     </div>
   </div>
-  <script src="multipart.js?v=5"></script>
-  <script src="app.js?v=5"></script>
+  <script src="multipart.js?v=6"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>

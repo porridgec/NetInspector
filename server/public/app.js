@@ -312,6 +312,14 @@
     const n = state.selectedIds.size;
     info.hidden = n === 0;
     info.textContent = `已选 ${n}`;
+    // 未选中时禁用导出按钮，避免误导出
+    const exportBtn = $('#exportBtn');
+    if (exportBtn) {
+      exportBtn.disabled = n === 0;
+      exportBtn.title = n === 0
+        ? '导出日志：先勾选日志（表头复选框可全选当前筛选结果）'
+        : `导出已勾选的 ${n} 条日志`;
+    }
   }
 
   function updateHeadSelState() {
@@ -334,17 +342,17 @@
     updateSelInfo();
   }
 
-  /** 导出范围：有勾选 → 勾选的；无勾选 → 当前筛选结果 */
+  /** 导出范围：仅勾选的日志（无选择时不允许导出，防止误导出全量） */
   function exportTargetIds() {
-    if (state.selectedIds.size > 0) {
-      return [...state.selectedIds].filter((id) => state.byId.has(id));
-    }
-    return [...new Set([...tbody.querySelectorAll('tr[data-id]')].map((r) => r.dataset.id))];
+    return [...state.selectedIds].filter((id) => state.byId.has(id));
   }
 
   async function exportLogs() {
     const ids = exportTargetIds();
-    if (!ids.length) { toast('没有可导出的日志'); return; }
+    if (!ids.length) {
+      toast('请先勾选要导出的日志（支持拖拽框选，或点击表头复选框全选）');
+      return;
+    }
     try {
       const r = await fetch('/api/export', {
         method: 'POST',
@@ -1019,14 +1027,20 @@
       updateHeadSelState();
     });
 
-    // 鼠标拖拽框选（按行范围）
-    let drag = null; // { anchorId, startY, active }
+    // 鼠标拖拽框选：从「未选行」开始拖 = 勾选范围；从「已选行」开始拖 = 取消范围。
+    // 只切换范围内的记录，范围外已选保持不动。
+    let drag = null; // { anchorId, startY, active, deselect }
     tbody.addEventListener('pointerdown', (ev) => {
       if (ev.button !== 0) return;
       if (ev.target.closest('input, a, button')) return;
       const tr = ev.target.closest('tr[data-id]');
       if (!tr) return;
-      drag = { anchorId: tr.dataset.id, startY: ev.clientY, active: false };
+      drag = {
+        anchorId: tr.dataset.id,
+        startY: ev.clientY,
+        active: false,
+        deselect: state.selectedIds.has(tr.dataset.id),
+      };
     });
     window.addEventListener('pointermove', (ev) => {
       if (!drag) return;
@@ -1040,24 +1054,31 @@
       const hovered = document.elementFromPoint(ev.clientX, ev.clientY);
       const hoverRow = hovered && hovered.closest ? hovered.closest('tr[data-id]') : null;
       const currentIdx = hoverRow ? rows.indexOf(hoverRow) : -1;
-      rows.forEach((r) => r.classList.remove('drag-range'));
+      rows.forEach((r) => r.classList.remove('drag-range', 'drag-range-del'));
       if (anchorIdx >= 0 && currentIdx >= 0) {
         const [a, b] = anchorIdx <= currentIdx ? [anchorIdx, currentIdx] : [currentIdx, anchorIdx];
-        for (let i = a; i <= b; i++) rows[i].classList.add('drag-range');
+        for (let i = a; i <= b; i++) {
+          rows[i].classList.add('drag-range');
+          if (drag.deselect) rows[i].classList.add('drag-range-del');
+        }
       }
     });
     window.addEventListener('pointerup', () => {
       if (!drag) return;
-      const wasActive = drag.active;
+      const { active, deselect } = drag;
       drag = null;
       document.body.classList.remove('rb-selecting');
-      if (!wasActive) return;
+      if (!active) return;
       lastDragEnd = Date.now();
       const rows = [...tbody.querySelectorAll('tr[data-id]')];
       const range = rows.filter((r) => r.classList.contains('drag-range'));
-      rows.forEach((r) => r.classList.remove('drag-range'));
+      rows.forEach((r) => r.classList.remove('drag-range', 'drag-range-del'));
       if (range.length) {
-        state.selectedIds = new Set(range.map((r) => r.dataset.id));
+        // toggle：不重置已有选择，只切换范围内记录的选中状态
+        for (const r of range) {
+          if (deselect) state.selectedIds.delete(r.dataset.id);
+          else state.selectedIds.add(r.dataset.id);
+        }
         syncSelectionUI();
       }
     });
