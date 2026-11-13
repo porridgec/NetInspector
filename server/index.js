@@ -127,6 +127,9 @@ app.use((req, res, next) => {
     return res.status(403).type('text/plain').send('Forbidden: invalid Host header\n');
   }
   if (!isAuthorized(req)) {
+    const hadToken = tokenFromRequest(req).length > 0;
+    console.log(`[!] 401 ${stripCtrl(req.method)} ${stripCtrl(req.path)} ← ${req.ip} ` +
+                `(token ${hadToken ? '不匹配' : '缺失'} — 请核对服务端 TOKEN 环境变量的值)`);
     return res.status(401).type('text/plain').send('Unauthorized: missing or invalid token\n');
   }
   next();

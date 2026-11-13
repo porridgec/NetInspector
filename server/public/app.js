@@ -23,9 +23,16 @@
 
   const TOKEN = (() => {
     try {
+      // sessionStorage 优先（用户可能在授权卡片里粘贴/更正过令牌），
+      // 其次才是 URL query 里的 token。
+      const saved = sessionStorage.getItem('ni.token');
+      if (saved) return saved;
       const fromUrl = new URLSearchParams(location.search).get('token');
-      if (fromUrl) { sessionStorage.setItem('ni.token', fromUrl); return fromUrl; }
-      return sessionStorage.getItem('ni.token') || '';
+      if (fromUrl) {
+        sessionStorage.setItem('ni.token', fromUrl);
+        return fromUrl;
+      }
+      return '';
     } catch { return ''; }
   })();
 
@@ -34,9 +41,14 @@
     return url + (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(TOKEN);
   };
 
+  // 只有当 API 也返回 401 时才弹授权卡片；WS 单独断开（1006，可能只是网络抖动
+  // 或服务重启）不触发，避免误报——那种情况走右下角 offline 状态自动重连。
+  let apiUnauthorized = false;
+
   async function fetchAPI(url, options) {
     const response = await fetch(withToken(url), options);
     if (response.status === 401) {
+      apiUnauthorized = true;
       showAuthError();
       throw new Error('unauthorized');
     }
@@ -46,9 +58,23 @@
   function showAuthError() {
     const node = $('#authError');
     if (!node) return;
-    const code = node.querySelector('.authUrl');
-    if (code) code.textContent = `${location.origin}/?token=你的令牌`;
     node.hidden = false;
+    setTimeout(() => $('#authInput')?.focus(), 50);
+  }
+
+  // 令牌输入框：保存到 sessionStorage 并整页重载（TOKEN 常量在启动时读取）
+  function bindAuthInput() {
+    const input = $('#authInput');
+    const button = $('#authBtn');
+    if (!input || !button) return;
+    const submit = () => {
+      const value = input.value.trim();
+      if (!value) { input.focus(); return; }
+      try { sessionStorage.setItem('ni.token', value); } catch { /* ignore */ }
+      location.reload();
+    };
+    button.addEventListener('click', submit);
+    input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') submit(); });
   }
 
   const fmtBytes = (n) => {
@@ -747,7 +773,7 @@
     };
     ws.onclose = (ev) => {
       setConn('offline', 'offline');
-      if (ev.code === 1006 && TOKEN) showAuthError();
+      if (ev.code === 1006 && TOKEN && apiUnauthorized) showAuthError();
       const delay = Math.min(15000, 500 * 2 ** retries++);
       setTimeout(connect, delay);
     };
