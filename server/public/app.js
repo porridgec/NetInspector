@@ -347,12 +347,53 @@
     return [...state.selectedIds].filter((id) => state.byId.has(id));
   }
 
+  /** 生成建议文件名：优先沿用用户上次的自定义文件名，否则用时间戳 */
+  function suggestedExportName() {
+    let last = '';
+    try { last = localStorage.getItem('ni.lastSaveName') || ''; } catch { /* ignore */ }
+    if (last && !/^netinspector-\d{4}-\d{2}-\d{2}/.test(last)) return last;
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    return `netinspector-${stamp}.json`;
+  }
+
+  /**
+   * 保存导出文件：
+   * - 支持 File System Access API 的浏览器（Chrome/Edge）弹出系统保存对话框，
+   *   用户自选目录与文件名；浏览器会记住该站点上次选择的目录。
+   * - 其他浏览器回退为普通下载（保存到下载目录，文件名可建议不可改）。
+   * 返回 { name } | { fallback: true } | null（用户取消）。
+   */
+  async function saveExportBlob(blob, suggestedName) {
+    if (window.showSaveFilePicker) {
+      try {
+        const handle = await window.showSaveFilePicker({
+          suggestedName,
+          types: [{ description: 'NetInspector 导出', accept: { 'application/json': ['.json'] } }],
+        });
+        const writable = await handle.createWritable();
+        await writable.write(blob);
+        await writable.close();
+        try { localStorage.setItem('ni.lastSaveName', handle.name || suggestedName); } catch { /* ignore */ }
+        return { name: handle.name || suggestedName };
+      } catch (err) {
+        if (err && err.name === 'AbortError') return null; // 用户取消，不落盘
+        // SecurityError（无用户手势）等 → 回退普通下载
+      }
+    }
+    const a = el('a', { href: URL.createObjectURL(blob), download: suggestedName });
+    document.body.append(a);
+    a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    return { fallback: true };
+  }
+
   async function exportLogs() {
     const ids = exportTargetIds();
     if (!ids.length) {
       toast('请先勾选要导出的日志（支持拖拽框选，或点击表头复选框全选）');
       return;
     }
+    let blob;
     try {
       const r = await fetch('/api/export', {
         method: 'POST',
@@ -360,15 +401,17 @@
         body: JSON.stringify({ ids }),
       });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const blob = await r.blob();
-      const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-      const a = el('a', { href: URL.createObjectURL(blob), download: `netinspector-${stamp}.json` });
-      document.body.append(a);
-      a.click();
-      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-      toast(`已导出 ${ids.length} 条日志`);
+      blob = await r.blob();
     } catch (err) {
       toast(`导出失败：${err.message}`);
+      return;
+    }
+    try {
+      const saved = await saveExportBlob(blob, suggestedExportName());
+      if (saved === null) return; // 用户取消保存，静默
+      toast(saved.fallback ? `已导出 ${ids.length} 条日志` : `已导出 ${ids.length} 条 → ${saved.name}`);
+    } catch (err) {
+      toast(`保存失败：${err.message}`);
     }
   }
 
