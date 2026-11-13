@@ -23,6 +23,8 @@
 }
 
 * { box-sizing: border-box; }
+/* hidden 属性必须永远生效（覆盖任何 display 规则），否则遮罩无法关闭 */
+[hidden] { display: none !important; }
 html, body { height: 100%; }
 body {
   margin: 0;
