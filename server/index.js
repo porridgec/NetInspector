@@ -115,7 +115,13 @@ app.use((_req, res, next) => {
   next();
 });
 
-// Host + Token 校验（Token 覆盖所有路由，包括静态 Dashboard 与 /ping）
+// 静态资源放在鉴权之前：Dashboard 的 HTML/CSS/JS 壳不含任何抓包数据，
+// 且 <link>/<script> 请求不会携带 query 里的 token——若被 401 会整页裸奔。
+// 敏感数据全部由下方鉴权保护的 /api/*、/log、WS 升级提供（app.js 会自动
+// 把 token 附加到每个 API 请求上）。
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Host + Token 校验：保护所有数据通道（API / HTTP 回退 / ping）
 app.use((req, res, next) => {
   if (!hostAllowed(req.headers.host)) {
     return res.status(403).type('text/plain').send('Forbidden: invalid Host header\n');
