@@ -14,6 +14,10 @@ const WebSocket = require('ws');
 
 const PORT = parseInt(process.env.PORT || '9090', 10);
 const INTERVAL = parseInt(process.env.INTERVAL || '700', 10);
+// 与服务端使用相同的 TOKEN 环境变量（TOKEN=xxx npm start ↔ TOKEN=xxx npm run demo）
+const TOKEN = process.env.TOKEN || process.env.NI_TOKEN || '';
+
+const ws = new WebSocket(`ws://localhost:${PORT}/log${TOKEN ? `?token=${encodeURIComponent(TOKEN)}` : ''}`);
 
 const TINY_GIF_BASE64 =
   'R0lGODlhEAAQAMQAAORHHOVSKudfOulrSOp3WOyDZu6QdvCchPGolfO0o/XBs/fNwfjZ0frl3/zy7////wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACH5BAkAABAALAAAAAAQABAAAAVVICSOZGlCQAosJ6mu7fiyZeKqNKToQGDsM8hBADgUXoGAiqhSvp5QAnQKGIgUhwFUYLCVDFCrKUE1lBavAViFIDlTImbKC5Gm2hB0SlBCBMkiB0UjIQA7';
@@ -21,8 +25,6 @@ const TINY_GIF_BASE64 =
 // A real, browser-decodable 96x64 gradient JPEG (so the multipart image preview works).
 const REAL_JPEG_BASE64 =
   '/9j/4AAQSkZJRgABAQAASABIAAD/4QBMRXhpZgAATU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAYKADAAQAAAABAAAAQAAAAAD/7QA4UGhvdG9zaG9wIDMuMAA4QklNBAQAAAAAAAA4QklNBCUAAAAAABDUHYzZjwCyBOmACZjs+EJ+/8AAEQgAQABgAwEiAAIRAQMRAf/EAB8AAAEFAQEBAQEBAAAAAAAAAAABAgMEBQYHCAkKC//EALUQAAIBAwMCBAMFBQQEAAABfQECAwAEEQUSITFBBhNRYQcicRQygZGhCCNCscEVUtHwJDNicoIJChYXGBkaJSYnKCkqNDU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6g4SFhoeIiYqSk5SVlpeYmZqio6Slpqeoqaqys7S1tre4ubrCw8TFxsfIycrS09TV1tfY2drh4uPk5ebn6Onq8fLz9PX29/j5+v/EAB8BAAMBAQEBAQEBAQEAAAAAAAABAgMEBQYHCAkKC//EALURAAIBAgQEAwQHBQQEAAECdwABAgMRBAUhMQYSQVEHYXETIjKBCBRCkaGxwQkjM1LwFWJy0QoWJDThJfEXGBkaJicoKSo1Njc4OTpDREVGR0hJSlNUVVZXWFlaY2RlZmdoaWpzdHV2d3h5eoKDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uLj5OXm5+jp6vLz9PX29/j5+v/bAEMAAgICAgICBAICBAYEBAQGCAYGBgYICggICAgICgwKCgoKCgoMDAwMDAwMDA4ODg4ODhAQEBAQEhISEhISEhISEv/bAEMBAwMDBQQFCAQECBMNCw0TExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTExMTE//dAAQABv/aAAwDAQACEQMRAD8A/C630npxW7b6T7V2VvpPtW7b6T7VwrFHLgM121ONt9J6cVvW+k+1djbaT7VvW+k9OKpYo+2wGbbanG22k+1btvpPTiuyt9J9q3bbSfaqWKPtsBmu2px1vpPtW7b6T7V2NvpPtW9b6T04qlij7XAZrtqcbb6T7VvW2k+1djb6T7VvW+k+1V9aPtsvzXbU4230n2rdt9J6cV2VvpPTit220n2qlij7bAZrtqf/0PzMt9I9q3bfSD6V2lvpPtW7b6T7V8asUflWAzbbU4y30g8cVu22j+1dnbaT7Vu2+k9OKpYo+1wGbbanGW2j+1b1vo/Tiuzt9J6cVu2+k+1V9aPtsBm22pxlvo/tW9b6QfSuyt9J9q3rfSfaqWKPtsBm22pxlvpB9K3bbR/auzt9J6cVvW+k+1UsUfa5fm22pxdvpB9K3rfR+nFdnb6T7Vu22k+1UsUfbYDNttT/0fmu30n2ret9J6cV2dvpA9K3bfR/avylYo/l7AZttqcZb6T04rdttJ9q7O20gelb1vo444qvrR9tgM221OLttJ9q3rfSenFdnb6QOOK3rfSB6VSxR9rl+bbanF2+k+1b1vpPtXZ2+kD0rdt9I9qpYo+2wGbbanGW+k9OK3bbSfauzt9Iz2ret9HHHFV9aPtsvzbbU4u30n2ret9J6cV2dvpA44rettIH92qWKPtsBm22p//SuW+k+1btvpPTiuzt9IPHFbtvpH+zX4KsUfwlgM221ONt9J6cVu2+k+1dlbaR/s1u2+ke1V9aPtsBmu2pxttpPtW9b6T7V2VvpB/u1u2+k/7NUsUfbYDNdtTjbfSenFb1vpPtXY2+kHjit620g+lUsUfa4DNdtTjbfSfat220n2rsrbSPat230jp8tUsUfbYDNdtTjbfSfat630npxXZW+kHrtrdttJ/2apYo+2wGbban/9k=';
-
-const ws = new WebSocket(`ws://localhost:${PORT}/log`);
 
 const paths = ['/v1/users', '/v1/users/42', '/v1/orders', '/v1/search?q=swift', '/v1/feed?page=3',
   '/api/login', '/api/upload', '/api/config', '/health', '/v1/missing-page'];
@@ -194,6 +196,12 @@ ws.on('open', () => {
       ws.send(JSON.stringify({ type: 'request', event: eventTemplate() }));
     }
   }, INTERVAL);
+});
+
+ws.on('unexpected-response', (_req, res) => {
+  console.error(`✋ 握手被拒绝（HTTP ${res.statusCode}）— TOKEN 缺失或不匹配`);
+  console.error('   使用与服务端相同的环境变量运行：TOKEN=xxx npm run demo');
+  process.exit(1);
 });
 
 ws.on('close', () => {
