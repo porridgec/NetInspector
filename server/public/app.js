@@ -878,10 +878,29 @@
         title: '折叠所有层级（只保留根节点）',
         onclick: () => setJsonTreeExpanded(prettyView, false),
       });
+      // 折行开关：默认开（长内容自动折行，防止撑出容器）；偏好持久化
+      let wrapOn = true;
+      try { wrapOn = localStorage.getItem('ni.jsonWrap') !== '0'; } catch { /* ignore */ }
+      const wrapBtn = el('button', {
+        class: `btn mini${wrapOn ? ' active' : ''}`,
+        text: '折行',
+        title: '长内容自动折行（关闭后单行显示，可横向滚动）',
+        onclick: () => {
+          wrapOn = !wrapOn;
+          const tree = prettyView.querySelector('.jtree');
+          if (tree) tree.classList.toggle('nowrap', !wrapOn);
+          wrapBtn.classList.toggle('active', wrapOn);
+          try { localStorage.setItem('ni.jsonWrap', wrapOn ? '1' : '0'); } catch { /* ignore */ }
+        },
+      });
       const copyBtn = el('button', { class: 'btn mini', text: 'Copy formatted', onclick: () => copyText(JSON.stringify(parsed, null, 2)) });
-      container.append(sectionCard('JSON', el('span', { class: 'right' }, expandAllBtn, collapseAllBtn, prettyBtn, rawBtn, copyBtn)));
+      container.append(sectionCard('JSON', el('span', { class: 'right' }, expandAllBtn, collapseAllBtn, wrapBtn, prettyBtn, rawBtn, copyBtn)));
 
       const prettyView = el('div', {}, jsonTree(parsed));
+      if (!wrapOn) {
+        const tree = prettyView.querySelector('.jtree');
+        if (tree) tree.classList.add('nowrap');
+      }
       const rawView = el('pre', { class: 'raw', text: body });
       const setMode = (m) => {
         mode = m;
