@@ -14,7 +14,7 @@ https://github.com/porridgec/NetInspector
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/porridgec/NetInspector", from: "1.0.0")
+    .package(url: "https://github.com/porridgec/NetInspector", from: "1.1.0")
 ],
 targets: [
     .target(dependencies: [.product(name: "NetInspector", package: "NetInspector")])
@@ -31,13 +31,16 @@ targets: [
 import NetInspector
 
 #if DEBUG
-let inspector = LNNetInspector.shared()
-inspector.host = "192.168.1.8"
-inspector.authToken = "my-secret"     // 服务端设置了 TOKEN 时必填
-inspector.onConnectionChange = { connected, reason in
+LNNetInspector.shared()
+    .host("192.168.1.8")
+    .port(9090)
+    .authToken("my-secret")           // 服务端设置了 TOKEN 时必填
+    .start()
+
+// 连接状态回调（可选）
+LNNetInspector.shared().onConnectionChange = { connected, reason in
     print("NetInspector connected:", connected, reason ?? "")
 }
-inspector.start()
 #endif
 ```
 
@@ -46,11 +49,22 @@ inspector.start()
 ```objc
 #import <NetInspector/NetInspector.h>
 
-LNNetInspector *inspector = [LNNetInspector shared];
-inspector.host = @"192.168.1.8";
-inspector.authToken = @"my-secret";
-[inspector start];
+[[[[LNNetInspector shared] host:@"192.168.1.8"] authToken:@"my-secret"] start];
 ```
+
+## 链式配置 API
+
+所有初始化参数均为链式方法（`-start` 之前调用，返回 self 可任意串联）：
+
+| 方法 | 说明 | 默认 |
+| --- | --- | --- |
+| `.host(…)` | Mac 服务端 IP | — |
+| `.port(…)` | 服务端端口 | 9090 |
+| `.authToken(…)` | 访问令牌（服务端 TOKEN） | 无 |
+| `.ignoredHosts(…)` | 不抓的域名（支持 `*.domain`） | 空 |
+| `.maxBodyCaptureBytes(…)` | body 展示保留上限 | 256 KiB |
+| `.maxStreamBodyBytes(…)` | 流式 body 内存缓冲上限 | 32 MiB |
+| `.offlineQueueCapacity(…)` | 断网磁盘队列容量 | 500 |
 
 ## 包结构
 

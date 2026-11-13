@@ -171,7 +171,7 @@ https://github.com/porridgec/NetInspector
 或在 `Package.swift` 中：
 
 ```swift
-.package(url: "https://github.com/porridgec/NetInspector", from: "1.0.0")
+.package(url: "https://github.com/porridgec/NetInspector", from: "1.1.0")
 // target 依赖：
 .product(name: "NetInspector", package: "NetInspector")
 ```
@@ -205,14 +205,16 @@ Swift 侧直接 `import NetInspector`（SPM 自动生成 Clang module，**无需
 import NetInspector
 
 #if DEBUG
-let inspector = LNNetInspector.shared()
-inspector.host = "192.168.1.8"      // ← 服务端横幅里的 IP
-inspector.port = 9090
-inspector.authToken = "my-secret"   // ← 服务端设置了 TOKEN 时必填
-inspector.onConnectionChange = { connected, reason in
+LNNetInspector.shared()
+    .host("192.168.1.8")            // ← 服务端横幅里的 IP
+    .port(9090)
+    .authToken("my-secret")         // ← 服务端设置了 TOKEN 时必填
+    .start()
+
+// 连接状态回调（可选）
+LNNetInspector.shared().onConnectionChange = { connected, reason in
     print("NetInspector connected:", connected, reason ?? "")
 }
-inspector.start()
 #endif
 ```
 
@@ -220,10 +222,7 @@ inspector.start()
 
 ```objc
 #if DEBUG
-LNNetInspector *inspector = [LNNetInspector shared];
-inspector.host = @"192.168.1.8";
-inspector.authToken = @"my-secret";   // 可选
-inspector.start;
+[[[[LNNetInspector shared] host:@"192.168.1.8"] authToken:@"my-secret"] start];
 #endif
 ```
 
@@ -232,17 +231,19 @@ inspector.start;
 ### 4. 配置项（均在 `start` 之前设置）
 
 ```objc
-inspector.host = @"192.168.1.8";
-inspector.port = 9090;                          // 默认 9090
-inspector.authToken = @"my-secret";             // 可选，与服务端 TOKEN 一致
-inspector.ignoredHosts = @[@"*.sentry.io"];     // 不想抓的域名（支持通配符）
-inspector.maxBodyCaptureBytes = 256 * 1024;     // body 保留上限（默认 256 KiB）
-inspector.maxStreamBodyBytes   = 32 * 1024 * 1024; // 流式缓冲上限（默认 32 MiB）
-inspector.offlineQueueCapacity = 500;           // 离线队列容量
+[[[[[[LNNetInspector shared]
+    host:@"192.168.1.8"]
+    port:9090]                      // 默认 9090
+    authToken:@"my-secret"]         // 可选，与服务端 TOKEN 一致
+    ignoredHosts:@[@"*.sentry.io"]] // 不想抓的域名（支持通配符）
+    maxBodyCaptureBytes:256 * 1024] // body 保留上限（默认 256 KiB）
+    start];                         // 也可链上 maxStreamBodyBytes / offlineQueueCapacity
 
 // 连接状态（主线程回调；也可读 inspector.wsConnected）
-inspector.onConnectionChange = ^(BOOL connected, NSString *reason) { ... };
+LNNetInspector.shared().onConnectionChange = ^(BOOL connected, NSString *reason) { ... };
 ```
+
+Swift 等价写法：`.host("…").port(9090).authToken("…").ignoredHosts([…]).start()`
 
 ### 5. 拦截范围
 

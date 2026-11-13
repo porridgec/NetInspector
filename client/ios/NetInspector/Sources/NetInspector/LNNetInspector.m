@@ -21,6 +21,14 @@ static NSUInteger const kLNDrainBatchSize = 32;
 @property (nonatomic, strong) LNWebSocketClient *wsClient;
 @property (nonatomic, strong) LNOfflineQueue *offlineQueue;
 @property (nonatomic, strong) dispatch_queue_t internalQueue;
+// 链式配置的存储（公开 API 只暴露 fluent 方法）
+@property (nonatomic, copy, nullable) NSString *host;
+@property (nonatomic, assign) NSUInteger port;
+@property (nonatomic, copy, nullable) NSString *authToken;
+@property (nonatomic, copy) NSArray<NSString *> *ignoredHosts;
+@property (nonatomic, assign) NSUInteger maxBodyCaptureBytes;
+@property (nonatomic, assign) NSUInteger maxStreamBodyBytes;
+@property (nonatomic, assign) NSUInteger offlineQueueCapacity;
 // getter 名必须与 LNNetInspector+Internal.h 的声明一致（isEnabled），
 // 否则外部调用 `.enabled` 生成的 selector 无实现 → 运行时崩溃。
 @property (nonatomic, assign, getter=isEnabled) BOOL enabled;
@@ -118,6 +126,43 @@ static NSInteger const kLNWsFailuresBeforeFallback = 2;
     };
 }
 
+#pragma mark - 链式配置
+
+- (instancetype)host:(NSString *)host {
+    self.host = [host copy];
+    return self;
+}
+
+- (instancetype)port:(NSUInteger)port {
+    self.port = port;
+    return self;
+}
+
+- (instancetype)authToken:(NSString *)authToken {
+    self.authToken = [authToken copy];
+    return self;
+}
+
+- (instancetype)ignoredHosts:(NSArray<NSString *> *)ignoredHosts {
+    self.ignoredHosts = [ignoredHosts copy] ?: @[];
+    return self;
+}
+
+- (instancetype)maxBodyCaptureBytes:(NSUInteger)bytes {
+    self.maxBodyCaptureBytes = bytes;
+    return self;
+}
+
+- (instancetype)maxStreamBodyBytes:(NSUInteger)bytes {
+    self.maxStreamBodyBytes = bytes;
+    return self;
+}
+
+- (instancetype)offlineQueueCapacity:(NSUInteger)capacity {
+    self.offlineQueueCapacity = capacity;
+    return self;
+}
+
 #pragma mark - Lifecycle
 
 - (void)start {
@@ -131,17 +176,11 @@ static NSInteger const kLNWsFailuresBeforeFallback = 2;
     [LNURLSessionHook install];
 
     if (self.host.length == 0) {
-        NSLog(@"[NetInspector] ⚠ host not set — set .host before -start, or use -startWithHost:port:. "
-              @"Events will only accumulate in the offline queue.");
+        NSLog(@"[NetInspector] ⚠ host 未设置 — 在 -start 之前链式配置 .host(@\"<mac-ip>\")，"
+              @"否则事件只会累积在离线队列中。");
         return;
     }
     [self connectWebSocket];
-}
-
-- (void)startWithHost:(NSString *)host port:(NSUInteger)port {
-    self.host = host;
-    self.port = port;
-    [self start];
 }
 
 - (void)stop {

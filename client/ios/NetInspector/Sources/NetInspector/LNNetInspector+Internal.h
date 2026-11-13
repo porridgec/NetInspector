@@ -16,6 +16,10 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly, copy) NSString *clientId;
 @property (nonatomic, readonly, copy) NSString *deviceLabel;
 
+/// 配置值（内部拦截器读取；对 Swift 不暴露，公开 API 只有链式方法）
+@property (nonatomic, readonly) NSUInteger maxBodyCaptureBytes;
+@property (nonatomic, readonly) NSUInteger maxStreamBodyBytes;
+
 /// YES if this URL should be captured (filters ignored hosts + the server itself).
 - (BOOL)shouldCaptureURL:(nullable NSURL *)url;
 

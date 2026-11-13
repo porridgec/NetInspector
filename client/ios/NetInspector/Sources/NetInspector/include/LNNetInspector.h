@@ -4,16 +4,20 @@
 //
 //  Public facade of the LAN network inspector.
 //
-//  Swift:
-//      LNNetInspector.shared().host = "192.168.1.8"
-//      LNNetInspector.shared().start()
+//  链式初始化（Swift）：
+//      import NetInspector
+//      LNNetInspector.shared()
+//          .host("192.168.1.8")
+//          .port(9090)
+//          .authToken("my-secret")     // 服务端设置了 TOKEN 时必填
+//          .start()
 //
-//  Objective-C:
-//      [[LNNetInspector shared] startWithHost:@"192.168.1.8" port:9090];
+//  链式初始化（Objective-C）：
+//      [[[[LNNetInspector shared] host:@"192.168.1.8"] port:9090] start];
 //
 //  Captures URLSession / NSURLConnection traffic (including Alamofire,
-//  AFNetworking and other libraries built on top of URL Loading System)
-//  and streams it live to the NetInspector dashboard on your Mac.
+//  AFNetworking, Swift Packages and other libraries built on top of the
+//  URL Loading System) and streams it live to the NetInspector dashboard.
 //
 
 #import <Foundation/Foundation.h>
@@ -27,22 +31,33 @@ NS_ASSUME_NONNULL_BEGIN
 
 + (instancetype)shared;
 
-#pragma mark - Configuration (before -start)
+#pragma mark - 链式配置（必须在 -start 之前调用）
 
-/// Mac server IP, e.g. @"192.168.1.8".
-@property (nonatomic, copy, nullable) NSString *host;
+/// Mac 服务端 IP，如 @"192.168.1.8"。返回 self 供链式调用。
+- (instancetype)host:(nullable NSString *)host;
 
-/// Mac server port. Default 9090.
-@property (nonatomic, assign) NSUInteger port;
+/// Mac 服务端端口，默认 9090。
+- (instancetype)port:(NSUInteger)port;
 
-/// Hosts never captured. Exact match, or wildcard like @"*.example.com".
-/// The dashboard host itself is always ignored (feedback-loop protection).
-@property (nonatomic, copy) NSArray<NSString *> *ignoredHosts;
+/// 可选访问令牌，需与服务端 TOKEN 环境变量一致。
+/// ws 走 ?token=，HTTP 回退通道走 x-ni-token 头。
+- (instancetype)authToken:(nullable NSString *)authToken;
 
-/// Optional access token — must match the Mac server's TOKEN env var
-/// (TOKEN=xxx npm start). Sent as ?token= on the WebSocket URL and as
-/// the x-ni-token header on the HTTP fallback channel.
-@property (nonatomic, copy, nullable) NSString *authToken;
+/// 不抓取的域名（精确匹配，或 @"*.example.com" 通配）。
+/// 服务端自身地址始终会被过滤（防反馈循环）。
+- (instancetype)ignoredHosts:(NSArray<NSString *> *)ignoredHosts;
+
+/// 单个 request/response body 的展示保留上限（字节）。默认 256 KiB。
+- (instancetype)maxBodyCaptureBytes:(NSUInteger)bytes;
+
+/// 流式 body（multipart/upload）在内存中缓冲的上限（字节）。默认 32 MiB，
+/// 超过后自动落盘转发，不影响真实上传。
+- (instancetype)maxStreamBodyBytes:(NSUInteger)bytes;
+
+/// 断网时磁盘离线队列容量（条）。默认 500。
+- (instancetype)offlineQueueCapacity:(NSUInteger)capacity;
+
+#pragma mark - 连接状态（属性形式：只读快照 / 变化回调）
 
 /// 连接状态变化回调（WebSocket 打开/关闭时触发，主线程调用）。
 /// reason 为关闭原因（nil = 正常/本地关闭）。
@@ -51,24 +66,12 @@ NS_ASSUME_NONNULL_BEGIN
 /// 当前 WebSocket 连接状态（只读快照；实时变化请用 onConnectionChange）
 @property (nonatomic, readonly) BOOL wsConnected;
 
-/// Max bytes kept per request/response body (display only). Default 256 KiB.
-@property (nonatomic, assign) NSUInteger maxBodyCaptureBytes;
-
-/// Hard cap when buffering streaming request bodies. Default 32 MiB.
-@property (nonatomic, assign) NSUInteger maxStreamBodyBytes;
-
-/// Max events persisted on disk while offline. Default 500.
-@property (nonatomic, assign) NSUInteger offlineQueueCapacity;
-
 #pragma mark - Lifecycle
 
-/// Starts interception + WebSocket streaming. Idempotent.
+/// 启动拦截 + WebSocket 流式传输。幂等。
 - (void)start;
 
-/// Convenience: configure and start in one call.
-- (void)startWithHost:(NSString *)host port:(NSUInteger)port;
-
-/// Stops interception and closes the socket. Queued events stay on disk.
+/// 停止拦截并关闭连接，未发送事件保留在磁盘队列。
 - (void)stop;
 
 - (BOOL)isRunning;

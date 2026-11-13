@@ -71,9 +71,9 @@ final class DemoStore: ObservableObject {
         let savedHost = UserDefaults.standard.string(forKey: hostKey) ?? ""
         let savedPort = UserDefaults.standard.object(forKey: portKey) as? Int ?? 9090
         let savedToken = UserDefaults.standard.string(forKey: tokenKey) ?? ""
-        if !savedHost.isEmpty { inspector.host = savedHost }
-        inspector.port = UInt(max(1, savedPort))
-        if !savedToken.isEmpty { inspector.authToken = savedToken }
+        if !savedHost.isEmpty { inspector.host(savedHost) }
+        inspector.port(UInt(max(1, savedPort)))
+        if !savedToken.isEmpty { inspector.authToken(savedToken) }
         bindConnectionObserver()
         inspector.start()
         if savedHost.isEmpty {
@@ -100,9 +100,10 @@ final class DemoStore: ObservableObject {
         }
         let inspector = LNNetInspector.shared()
         inspector.stop()
-        inspector.host = host.trimmingCharacters(in: .whitespaces)
-        inspector.port = UInt(max(1, port))
-        inspector.authToken = token.trimmingCharacters(in: .whitespaces)
+        inspector
+            .host(host.trimmingCharacters(in: .whitespaces))
+            .port(UInt(max(1, port)))
+            .authToken(token.trimmingCharacters(in: .whitespaces))
         Self.bindConnectionObserver()
         inspector.start()
         running = inspector.isRunning()
