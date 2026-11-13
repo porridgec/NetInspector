@@ -108,6 +108,7 @@ npm start
 浏览器打开 `http://<mac-ip>:9090` 即可看到 Dashboard。
 
 > **没有真机也想先看看效果？** 另开一个终端运行 `npm run demo`，会模拟一台设备持续回放 JSON / 表单 / 图片 / 404 / 500 / 超时 / 重定向等真实形态的流量。
+> 服务端启用了 `TOKEN` 时，demo 也要带同一环境变量：`TOKEN=xxx npm run demo`。
 
 ### Dashboard 功能
 
