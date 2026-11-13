@@ -134,17 +134,30 @@ app.use((_req, res, next) => {
   next();
 });
 
-// 静态资源放在鉴权之前：Dashboard 的 HTML/CSS/JS 壳不含任何抓包数据，
-// 且 <link>/<script> 请求不会携带 query 里的 token——若被 401 会整页裸奔。
-// 敏感数据全部由下方鉴权保护的 /api/*、/log、WS 升级提供（app.js 会自动
-// 把 token 附加到每个 API 请求上）。
-// no-cache = 允许缓存但每次使用前必须重新校验（ETag 304），
-// 保证服务端更新后浏览器不会继续跑旧版 JS。
+// Dashboard HTML 显式 no-store：永远拿最新版（资源更新由 HTML 里的 ?v= 版本号控制）
+app.get('/', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// 静态资源放鉴权之前（壳不含数据），no-cache 保证更新即时生效
 app.use(express.static(path.join(__dirname, 'public'), {
   setHeaders: (res) => {
     res.setHeader('Cache-Control', 'no-cache');
   },
 }));
+
+// 鉴权状态查询：不需要令牌即可访问，Dashboard 据此决定是否弹出授权卡片
+app.get('/api/auth', (req, res) => {
+  const provided = tokenFromRequest(req);
+  let authorized = !TOKEN;
+  if (provided && safeEqual(provided, TOKEN)) {
+    authorized = true;
+    res.setHeader('Set-Cookie',
+      `ni_token=${encodeURIComponent(TOKEN)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000`);
+  }
+  res.json({ tokenRequired: Boolean(TOKEN), authorized });
+});
 
 // Host + Token 校验：保护所有数据通道（API / HTTP 回退 / ping）。
 // 通过 query/header 令牌校验时，顺手把令牌固化成 HttpOnly cookie——
@@ -162,7 +175,6 @@ app.use((req, res, next) => {
     return next();
   }
   if (authorize(req)) return next();
-
   const hadToken = provided.length > 0 || !!(parseCookies(req.headers.cookie).ni_token);
   console.log(`[!] 401 ${stripCtrl(req.method)} ${stripCtrl(req.path)} ← ${req.ip} ` +
               `(token ${hadToken ? '不匹配' : '缺失'} — 请核对服务端 TOKEN 环境变量的值)`);

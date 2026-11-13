@@ -21,38 +21,27 @@
 
   /* ------------------------------ auth ------------------------------ */
 
-  const TOKEN = (() => {
-    try {
-      // sessionStorage 优先（用户可能在授权卡片里粘贴/更正过令牌），
-      // 其次才是 URL query 里的 token。
-      const saved = sessionStorage.getItem('ni.token');
-      if (saved) return saved;
-      const fromUrl = new URLSearchParams(location.search).get('token');
-      if (fromUrl) {
-        sessionStorage.setItem('ni.token', fromUrl);
-        return fromUrl;
-      }
-      return '';
-    } catch { return ''; }
-  })();
+  // 鉴权完全由服务端驱动：/api/auth 返回 {tokenRequired, authorized}，
+  // cookie 由服务端在校验通过时下发（HttpOnly），客户端不自行管理令牌。
+  let tokenRequired = false;
+  let authorized = false;
 
-  const withToken = (url) => {
-    if (!TOKEN) return url;
-    return url + (url.includes('?') ? '&' : '?') + 'token=' + encodeURIComponent(TOKEN);
-  };
+  async function checkAuth() {
+    const r = await fetch('/api/auth', { cache: 'no-store' });
+    if (!r.ok) throw new Error('auth check failed');
+    const state = await r.json();
+    tokenRequired = !!state.tokenRequired;
+    authorized = !!state.authorized;
+    return state;
+  }
 
-  // 只有当 API 也返回 401 时才弹授权卡片；WS 单独断开（1006，可能只是网络抖动
-  // 或服务重启）不触发，避免误报——那种情况走右下角 offline 状态自动重连。
-  let apiUnauthorized = false;
-
-  async function fetchAPI(url, options) {
-    const response = await fetch(withToken(url), options);
-    if (response.status === 401) {
-      apiUnauthorized = true;
-      showAuthError();
-      throw new Error('unauthorized');
-    }
-    return response;
+  /** 校验用户输入的令牌；成功时服务端下发 cookie。返回是否授权通过。 */
+  async function submitToken(value) {
+    const r = await fetch('/api/auth?token=' + encodeURIComponent(value), { cache: 'no-store' });
+    if (!r.ok) return false;
+    const state = await r.json();
+    authorized = !!state.authorized;
+    return authorized;
   }
 
   function showAuthError() {
@@ -62,7 +51,12 @@
     setTimeout(() => $('#authInput')?.focus(), 50);
   }
 
-  // 令牌输入框：校验通过后服务端固化 HttpOnly cookie 并整页重载
+  function hideAuthError() {
+    const node = $('#authError');
+    if (node) node.hidden = true;
+  }
+
+  // 授权卡片：粘贴令牌 → 服务端校验（同时下发 cookie）→ 拉取历史 → 连接 WS
   function bindAuthInput() {
     const input = $('#authInput');
     const button = $('#authBtn');
@@ -72,19 +66,28 @@
       const value = input.value.trim();
       if (!value) { input.focus(); return; }
       button.disabled = true;
+      button.textContent = '校验中…';
+      let ok = false;
+      let networkError = false;
       try {
-        // 校验通过的同时，服务端会把令牌固化成 HttpOnly cookie，
-        // 新标签页 / 重启浏览器后自动携带，无需重复输入。
-        const r = await fetch('/api/status?token=' + encodeURIComponent(value));
-        if (r.status === 200) {
-          try { sessionStorage.setItem('ni.token', value); } catch { /* ignore */ }
-          location.reload();
-          return;
-        }
-        hint.textContent = '❌ 令牌不匹配 —— 请核对服务端 TOKEN 环境变量的值后重试';
-        hint.style.color = 'var(--red)';
-      } catch { /* 网络问题：保持输入 */ }
+        ok = await submitToken(value);
+      } catch { networkError = true; }
       button.disabled = false;
+      button.textContent = '连接';
+      if (ok) {
+        hint.textContent = '';
+        hint.style.color = '';
+        hideAuthError();
+        authorized = true;
+        await loadHistory();
+        connect();
+        append('✓ 令牌验证通过，已连接');
+        return;
+      }
+      hint.style.color = 'var(--red)';
+      hint.textContent = networkError
+        ? '❌ 网络错误，请稍后重试'
+        : '❌ 令牌不匹配 —— 请核对服务端 TOKEN 环境变量的值后重试';
       input.focus();
     };
     button.addEventListener('click', submit);
@@ -300,7 +303,7 @@
     const summary = state.byId.get(id);
     if (!full) {
       try {
-        const r = await fetchAPI(`/api/logs/${encodeURIComponent(id)}`);
+        const r = await fetch(`/api/logs/${encodeURIComponent(id)}`);
         if (r.ok) { full = await r.json(); state.detailCache.set(id, full); }
       } catch { /* offline */ }
     }
@@ -774,7 +777,7 @@
   function connect() {
     setConn('connecting', 'connecting…');
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    ws = new WebSocket(`${proto}://${location.host}/dashboard${TOKEN ? `?token=${encodeURIComponent(TOKEN)}` : ''}`);
+    ws = new WebSocket(`${proto}://${location.host}/dashboard`);
 
     ws.onopen = () => { retries = 0; setConn('online', 'live'); };
     ws.onmessage = (ev) => {
@@ -787,7 +790,7 @@
     };
     ws.onclose = (ev) => {
       setConn('offline', 'offline');
-      if (ev.code === 1006 && TOKEN && apiUnauthorized) showAuthError();
+      // 授权遮罩由 checkAuth() 的结果驱动，这里只做自动重连
       const delay = Math.min(15000, 500 * 2 ** retries++);
       setTimeout(connect, delay);
     };
@@ -857,7 +860,7 @@
     }
 
     $('#clearBtn').addEventListener('click', async () => {
-      try { await fetchAPI('/api/logs', { method: 'DELETE' }); } catch { /* ignore */ }
+      try { await fetch('/api/logs', { method: 'DELETE' }); } catch { /* ignore */ }
       clearAll(); // optimistic; server broadcast is idempotent
     });
 
@@ -946,12 +949,9 @@
 
   /* ------------------------------ init ------------------------------ */
 
-  (async function init() {
-    bindUI();
-    bindAuthInput();
-    initSplitter();
+  async function loadHistory() {
     try {
-      const r = await fetchAPI('/api/logs?limit=1000');
+      const r = await fetch('/api/logs?limit=1000');
       const j = await r.json();
       for (const ev of (j.logs || []).reverse()) {
         state.events.push(ev);
@@ -959,6 +959,23 @@
       }
       refilter();
     } catch { /* server restarted; ws will bring new events */ }
+  }
+
+  (async function init() {
+    bindUI();
+    bindAuthInput();
+    initSplitter();
+    try {
+      const state = await checkAuth();
+      if (!state.authorized) {
+        showAuthError(); // 服务端要求令牌且当前未授权 → 显示授权卡片
+        return;          // 不连接 WS、不拉历史；用户在卡片里提交后再继续
+      }
+    } catch {
+      setConn('offline', 'offline'); // 网络错误：稍后由用户刷新重试
+      return;
+    }
+    await loadHistory();
     connect();
   })();
 })();
