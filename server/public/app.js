@@ -934,6 +934,7 @@
 
   (async function init() {
     bindUI();
+    bindAuthInput();
     initSplitter();
     try {
       const r = await fetchAPI('/api/logs?limit=1000');
