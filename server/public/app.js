@@ -81,7 +81,6 @@
         authorized = true;
         await loadHistory();
         connect();
-        append('✓ 令牌验证通过，已连接');
         return;
       }
       hint.style.color = 'var(--red)';

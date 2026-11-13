@@ -147,12 +147,13 @@ app.use(express.static(path.join(__dirname, 'public'), {
   },
 }));
 
-// 鉴权状态查询：不需要令牌即可访问，Dashboard 据此决定是否弹出授权卡片
+// 鉴权状态查询：不需要令牌即可访问，Dashboard 据此决定是否弹出授权卡片。
+// 接受 query/header/cookie 三种凭据来源（cookie 已固化的浏览器刷新后仍授权）。
 app.get('/api/auth', (req, res) => {
   const provided = tokenFromRequest(req);
-  let authorized = !TOKEN;
+  const authorized = authorize(req);
   if (provided && safeEqual(provided, TOKEN)) {
-    authorized = true;
+    // query/header 显式携带正确令牌时（重新）固化 cookie
     res.setHeader('Set-Cookie',
       `ni_token=${encodeURIComponent(TOKEN)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000`);
   }
@@ -180,8 +181,6 @@ app.use((req, res, next) => {
               `(token ${hadToken ? '不匹配' : '缺失'} — 请核对服务端 TOKEN 环境变量的值)`);
   return res.status(401).type('text/plain').send('Unauthorized: missing or invalid token\n');
 });
-
-app.use(express.static(path.join(__dirname, 'public')));
 
 // Reachability probe: plain text, no assets involved.
 app.get('/ping', (_req, res) => res.type('text/plain').send(`netinspector alive at ${new Date().toISOString()}\n`));
