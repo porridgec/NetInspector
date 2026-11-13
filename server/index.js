@@ -50,9 +50,28 @@ function tokenFromRequest(req) {
   return typeof token === 'string' ? token : '';
 }
 
-function isAuthorized(req) {
+function parseCookies(header) {
+  const out = {};
+  for (const part of String(header || '').split(';')) {
+    const i = part.indexOf('=');
+    if (i > 0) {
+      try { out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim()); } catch { /* ignore */ }
+    }
+  }
+  return out;
+}
+
+/** query / header / cookie 三处任一携带正确令牌即通过 */
+function authorize(req) {
   if (!TOKEN) return true;
-  return safeEqual(tokenFromRequest(req), TOKEN);
+  const provided = tokenFromRequest(req);
+  if (provided && safeEqual(provided, TOKEN)) return true;
+  const cookieToken = parseCookies(req.headers.cookie).ni_token || '';
+  return !!(cookieToken && safeEqual(cookieToken, TOKEN));
+}
+
+function isAuthorized(req) {
+  return authorize(req);
 }
 
 /**
@@ -127,18 +146,27 @@ app.use(express.static(path.join(__dirname, 'public'), {
   },
 }));
 
-// Host + Token 校验：保护所有数据通道（API / HTTP 回退 / ping）
+// Host + Token 校验：保护所有数据通道（API / HTTP 回退 / ping）。
+// 通过 query/header 令牌校验时，顺手把令牌固化成 HttpOnly cookie——
+// 之后浏览器新标签页 / 重启后的所有同源请求（含 WS 握手）自动携带。
 app.use((req, res, next) => {
   if (!hostAllowed(req.headers.host)) {
     return res.status(403).type('text/plain').send('Forbidden: invalid Host header\n');
   }
-  if (!isAuthorized(req)) {
-    const hadToken = tokenFromRequest(req).length > 0;
-    console.log(`[!] 401 ${stripCtrl(req.method)} ${stripCtrl(req.path)} ← ${req.ip} ` +
-                `(token ${hadToken ? '不匹配' : '缺失'} — 请核对服务端 TOKEN 环境变量的值)`);
-    return res.status(401).type('text/plain').send('Unauthorized: missing or invalid token\n');
+  if (!TOKEN) return next();
+
+  const provided = tokenFromRequest(req);
+  if (provided && safeEqual(provided, TOKEN)) {
+    res.setHeader('Set-Cookie',
+      `ni_token=${encodeURIComponent(TOKEN)}; Path=/; HttpOnly; SameSite=Lax; Max-Age=31536000`);
+    return next();
   }
-  next();
+  if (authorize(req)) return next();
+
+  const hadToken = provided.length > 0 || !!(parseCookies(req.headers.cookie).ni_token);
+  console.log(`[!] 401 ${stripCtrl(req.method)} ${stripCtrl(req.path)} ← ${req.ip} ` +
+              `(token ${hadToken ? '不匹配' : '缺失'} — 请核对服务端 TOKEN 环境变量的值)`);
+  return res.status(401).type('text/plain').send('Unauthorized: missing or invalid token\n');
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
@@ -209,8 +237,8 @@ server.on('upgrade', (req, socket, head) => {
   let pathname = '/';
   try { pathname = new URL(req.url, 'http://localhost').pathname; } catch { /* keep default */ }
 
-  // Security gate: Host (DNS rebinding), Origin (cross-site WS), Token.
-  if (!hostAllowed(req.headers.host) || !originAllowed(req) || !isAuthorized(req)) {
+  // Security gate: Host (DNS rebinding), Origin (cross-site WS), Token (+cookie).
+  if (!hostAllowed(req.headers.host) || !originAllowed(req) || !authorize(req)) {
     const status = !isAuthorized(req) ? 401 : 403;
     console.log(`[!] rejected WebSocket upgrade (${status}) from ${req.socket.remoteAddress} ` +
                 `host="${stripCtrl(req.headers.host || '')}" origin="${stripCtrl(req.headers.origin || '')}"`);

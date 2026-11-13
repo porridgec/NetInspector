@@ -62,16 +62,30 @@
     setTimeout(() => $('#authInput')?.focus(), 50);
   }
 
-  // 令牌输入框：保存到 sessionStorage 并整页重载（TOKEN 常量在启动时读取）
+  // 令牌输入框：校验通过后服务端固化 HttpOnly cookie 并整页重载
   function bindAuthInput() {
     const input = $('#authInput');
     const button = $('#authBtn');
+    const hint = $('#authHint');
     if (!input || !button) return;
-    const submit = () => {
+    const submit = async () => {
       const value = input.value.trim();
       if (!value) { input.focus(); return; }
-      try { sessionStorage.setItem('ni.token', value); } catch { /* ignore */ }
-      location.reload();
+      button.disabled = true;
+      try {
+        // 校验通过的同时，服务端会把令牌固化成 HttpOnly cookie，
+        // 新标签页 / 重启浏览器后自动携带，无需重复输入。
+        const r = await fetch('/api/status?token=' + encodeURIComponent(value));
+        if (r.status === 200) {
+          try { sessionStorage.setItem('ni.token', value); } catch { /* ignore */ }
+          location.reload();
+          return;
+        }
+        hint.textContent = '❌ 令牌不匹配 —— 请核对服务端 TOKEN 环境变量的值后重试';
+        hint.style.color = 'var(--red)';
+      } catch { /* 网络问题：保持输入 */ }
+      button.disabled = false;
+      input.focus();
     };
     button.addEventListener('click', submit);
     input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') submit(); });
