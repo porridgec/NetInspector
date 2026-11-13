@@ -45,15 +45,19 @@ LogServer/
 │       ├── multipart.js        # multipart/form-data 字节级解析器（Node 可测）
 │       ├── style.css
 │       └── app.js
-├── client/ios/NetInspector/    # iOS 端：Objective-C 模块（14 个文件，零依赖）
-│   ├── NetInspector.h          # 伞头文件
-│   ├── LNNetInspector.h/.m     # 公开门面（启停/配置/令牌/连接状态回调）
-│   ├── LNNetInspector+Internal.h
-│   ├── LNURLProtocol.h/.m      # 录制型 URLProtocol（重定向逐跳/流式 body）
-│   ├── LNURLSessionHook.h/.m   # SessionConfiguration swizzle（+load 无条件注入）
-│   ├── LNWebSocketClient.h/.m  # WebSocket + 指数退避重连 + 心跳 + 代理绕过
-│   ├── LNOfflineQueue.h/.m     # 磁盘离线队列
-│   └── LNBodyCoding.h/.m       # Body 编码 + 流式缓冲（超限落盘）
+├── Package.swift               # Swift Package 清单（SDK 以 SPM 分发）
+├── client/ios/NetInspector/    # iOS 端 SDK（纯 Objective-C，SPM 布局）
+│   └── Sources/NetInspector/
+│       ├── include/            # 公开头（自动生成 Clang module → import NetInspector）
+│       │   ├── NetInspector.h  # 伞头文件
+│       │   ├── LNNetInspector.h
+│       │   ├── LNURLProtocol.h
+│       │   ├── LNURLSessionHook.h
+│       │   ├── LNWebSocketClient.h
+│       │   ├── LNOfflineQueue.h
+│       │   └── LNBodyCoding.h
+│       ├── LNNetInspector+Internal.h
+│       └── *.m                 # 门面/拦截器/WS/离线队列/Body 编码
 └── demo/ios/                   # 演示工程
     ├── DemoApp/                # SwiftUI Demo（xcodegen 工程，直接打开运行）
     └── DemoKit/                # 本地 SPM 包（验证包内网络请求同样被拦截）
@@ -154,9 +158,29 @@ WebSocket 升级：设备 `ws://<ip>:9090/log`，浏览器 `ws://<ip>:9090/dashb
 
 ## 三、iOS 端接入指南
 
-### 1. 拷贝文件
+### 1. 接入方式（SPM 推荐）
 
-把 `client/ios/NetInspector/` 下 **14 个文件**（`.h` + `.m`）拖进 Xcode 工程（Add to targets）。**零第三方依赖**。
+**Swift Package Manager：**
+
+Xcode → File → Add Package Dependencies… → 输入仓库地址：
+
+```
+https://github.com/porridgec/NetInspector
+```
+
+或在 `Package.swift` 中：
+
+```swift
+.package(url: "https://github.com/porridgec/NetInspector", from: "1.0.0")
+// target 依赖：
+.product(name: "NetInspector", package: "NetInspector")
+```
+
+Swift 侧直接 `import NetInspector`（SPM 自动生成 Clang module，**无需桥接头**）；调用方式见下方示例。
+
+**手工拷贝（不便使用 SPM 时）：**
+
+把 `client/ios/NetInspector/Sources/NetInspector/` 下的 `.m`、私有头与 `include/` 内公开头拖进 Xcode 工程；Swift 项目配一个桥接头 `#import "NetInspector.h"`。
 
 ### 2. ATS 例外（仅 Debug）
 
@@ -175,9 +199,11 @@ WebSocket 升级：设备 `ws://<ip>:9090/log`，浏览器 `ws://<ip>:9090/dashb
 
 ### 3. 初始化（Swift / Objective-C）
 
-**Swift**（桥接头 `#import "NetInspector.h"`）：
+**Swift**（SPM：`import NetInspector`；手工集成：桥接头 `#import "NetInspector.h"`）：
 
 ```swift
+import NetInspector
+
 #if DEBUG
 let inspector = LNNetInspector.shared()
 inspector.host = "192.168.1.8"      // ← 服务端横幅里的 IP

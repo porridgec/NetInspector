@@ -69,14 +69,12 @@ DemoApp/
     ├── DemoStore.swift            # 状态/配置/令牌/连接状态/自动连发
     ├── NetworkDemo.swift          # 各种请求用例（不同 session 形态 + SPM 包）
     ├── DemoAssets.swift           # 真实 JPEG（multipart 演示用，生成产物）
-    ├── DemoApp-Bridging-Header.h  # #import "NetInspector/NetInspector.h"
-    ├── Info.plist                 # 含 ATS 例外（demo 专用）
-    └── NetInspector/              # 客户端模块快照（源：client/ios/NetInspector）
+    └── Info.plist                 # 含 ATS 例外（demo 专用）
 ../DemoKit/                        # 本地 SPM 包（模拟第三方包的网络层）
 ```
 
-> ⚠️ `NetInspector/` 是 `client/ios/NetInspector/` 的快照拷贝（保证 demo 目录自包含可分享）。
-> 更新客户端代码后请重新拷贝：`cp client/ios/NetInspector/* demo/ios/DemoApp/DemoApp/NetInspector/`
+> NetInspector SDK 通过 **SPM 本地 path 依赖**接入（指向仓库根 `Package.swift`），
+> Swift 侧 `import NetInspector`，与真实用户集成方式一致、无快照拷贝。
 
 ## 已在真机/模拟器环境验证
 

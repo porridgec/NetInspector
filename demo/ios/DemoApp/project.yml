@@ -7,6 +7,8 @@ options:
 packages:
   DemoKit:
     path: ../DemoKit
+  NetInspector:
+    path: ../../..
 settings:
   base:
     SWIFT_VERSION: "5.0"
@@ -21,12 +23,12 @@ targets:
           - "Info.plist"
     dependencies:
       - package: DemoKit
+      - package: NetInspector
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.example.netinspector.demo
         GENERATE_INFOPLIST_FILE: "NO"
         INFOPLIST_FILE: DemoApp/Info.plist
-        SWIFT_OBJC_BRIDGING_HEADER: DemoApp/DemoApp-Bridging-Header.h
         TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_STYLE: Automatic
         MARKETING_VERSION: "1.0"

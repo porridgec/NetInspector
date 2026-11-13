@@ -5,6 +5,7 @@
 
 import Foundation
 import SwiftUI
+import NetInspector
 
 @MainActor
 final class DemoStore: ObservableObject {

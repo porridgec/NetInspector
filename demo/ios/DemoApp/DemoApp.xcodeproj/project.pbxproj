@@ -7,43 +7,24 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		0DE8657287A1BBB6A3C2AC5E /* LNURLProtocol.m in Sources */ = {isa = PBXBuildFile; fileRef = E4E51B248C74F1D75ACBC73B /* LNURLProtocol.m */; };
 		2C3FB8935F60CFF52544D9AE /* DemoStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5BEF51322657689BAC1175E /* DemoStore.swift */; };
-		3E0A31038C14AA891988460E /* LNOfflineQueue.m in Sources */ = {isa = PBXBuildFile; fileRef = CB8D4E12DC90B614C9131DF5 /* LNOfflineQueue.m */; };
-		55E35D7EEBBB0E882D195111 /* LNNetInspector.m in Sources */ = {isa = PBXBuildFile; fileRef = 77FEF02CD30E155413337823 /* LNNetInspector.m */; };
 		5E4E80F735018AA48A88F257 /* DemoAssets.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51DEAD8E7F0261F1C8FA0AAE /* DemoAssets.swift */; };
 		7747C7646C100FF7FA2C55F9 /* DemoAppApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E03DECCC43EE647A543BD618 /* DemoAppApp.swift */; };
-		849491478D731856434B62F0 /* LNURLSessionHook.m in Sources */ = {isa = PBXBuildFile; fileRef = DD35390927DBC69BC8EF54D2 /* LNURLSessionHook.m */; };
-		9199F9D79C1A2751384E1425 /* LNWebSocketClient.m in Sources */ = {isa = PBXBuildFile; fileRef = A46A49C062BDB22B61BBE7BC /* LNWebSocketClient.m */; };
-		9B620DB4A324367B0AD0F84E /* LNBodyCoding.m in Sources */ = {isa = PBXBuildFile; fileRef = C984F33A9A4768FA8C18521A /* LNBodyCoding.m */; };
 		A607CD75037D2E4CB841ED73 /* NetworkDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 06C9E3AC1B12A9832A7EDD2A /* NetworkDemo.swift */; };
 		AA86119AB9FE463EDDA11738 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C558F4562A2F0D78FC9C88A8 /* ContentView.swift */; };
 		DFA0256A139D0EF6D51130AF /* DemoKit in Frameworks */ = {isa = PBXBuildFile; productRef = 9B3F22A73985ACB6776C461E /* DemoKit */; };
+		EB0CEF1EEDF7B846F6F75962 /* NetInspector in Frameworks */ = {isa = PBXBuildFile; productRef = B15F10ED9A7441EE6E7955D5 /* NetInspector */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		06C9E3AC1B12A9832A7EDD2A /* NetworkDemo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NetworkDemo.swift; sourceTree = "<group>"; };
-		154FAE636D5E23DF886F3868 /* DemoApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DemoApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		154FAE636D5E23DF886F3868 /* DemoApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = DemoApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		165BA7E6C725C58C9D968134 /* DemoKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = DemoKit; path = ../DemoKit; sourceTree = SOURCE_ROOT; };
 		51DEAD8E7F0261F1C8FA0AAE /* DemoAssets.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoAssets.swift; sourceTree = "<group>"; };
-		716CBEE645A5BC3E0D9A73ED /* LNNetInspector.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LNNetInspector.h; sourceTree = "<group>"; };
-		77FEF02CD30E155413337823 /* LNNetInspector.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LNNetInspector.m; sourceTree = "<group>"; };
-		88AD862740A9FED5E6574088 /* NetInspector.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = NetInspector.h; sourceTree = "<group>"; };
-		8A90594B05501ADD486CAB1F /* LNURLProtocol.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LNURLProtocol.h; sourceTree = "<group>"; };
-		A46A49C062BDB22B61BBE7BC /* LNWebSocketClient.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LNWebSocketClient.m; sourceTree = "<group>"; };
-		AAE27ED34C52C60BBF95DF30 /* LNURLSessionHook.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LNURLSessionHook.h; sourceTree = "<group>"; };
-		B62B02A7DE4C17A8AAA3B5CA /* LNBodyCoding.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LNBodyCoding.h; sourceTree = "<group>"; };
+		C1D946DF724168471488F21D /* LogServer */ = {isa = PBXFileReference; lastKnownFileType = folder; name = LogServer; path = ../../..; sourceTree = SOURCE_ROOT; };
 		C558F4562A2F0D78FC9C88A8 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		C984F33A9A4768FA8C18521A /* LNBodyCoding.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LNBodyCoding.m; sourceTree = "<group>"; };
-		CB8D4E12DC90B614C9131DF5 /* LNOfflineQueue.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LNOfflineQueue.m; sourceTree = "<group>"; };
 		D5BEF51322657689BAC1175E /* DemoStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoStore.swift; sourceTree = "<group>"; };
-		DD1AA3A38D3F06A2F96095CB /* DemoApp-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "DemoApp-Bridging-Header.h"; sourceTree = "<group>"; };
-		DD35390927DBC69BC8EF54D2 /* LNURLSessionHook.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LNURLSessionHook.m; sourceTree = "<group>"; };
-		DD89E7DAEC5F5F8C6F00E225 /* LNWebSocketClient.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LNWebSocketClient.h; sourceTree = "<group>"; };
 		E03DECCC43EE647A543BD618 /* DemoAppApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoAppApp.swift; sourceTree = "<group>"; };
-		E4E51B248C74F1D75ACBC73B /* LNURLProtocol.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = LNURLProtocol.m; sourceTree = "<group>"; };
-		F1D169E3F8FFADCC2BACC7DE /* LNOfflineQueue.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = LNOfflineQueue.h; sourceTree = "<group>"; };
-		F9C08EFF476162E12171A566 /* LNNetInspector+Internal.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "LNNetInspector+Internal.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -52,6 +33,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				DFA0256A139D0EF6D51130AF /* DemoKit in Frameworks */,
+				EB0CEF1EEDF7B846F6F75962 /* NetInspector in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -71,29 +53,9 @@
 			isa = PBXGroup;
 			children = (
 				165BA7E6C725C58C9D968134 /* DemoKit */,
+				C1D946DF724168471488F21D /* LogServer */,
 			);
 			name = Packages;
-			sourceTree = "<group>";
-		};
-		A11E56F61BCF2843E4C00599 /* NetInspector */ = {
-			isa = PBXGroup;
-			children = (
-				B62B02A7DE4C17A8AAA3B5CA /* LNBodyCoding.h */,
-				C984F33A9A4768FA8C18521A /* LNBodyCoding.m */,
-				716CBEE645A5BC3E0D9A73ED /* LNNetInspector.h */,
-				77FEF02CD30E155413337823 /* LNNetInspector.m */,
-				F9C08EFF476162E12171A566 /* LNNetInspector+Internal.h */,
-				F1D169E3F8FFADCC2BACC7DE /* LNOfflineQueue.h */,
-				CB8D4E12DC90B614C9131DF5 /* LNOfflineQueue.m */,
-				8A90594B05501ADD486CAB1F /* LNURLProtocol.h */,
-				E4E51B248C74F1D75ACBC73B /* LNURLProtocol.m */,
-				AAE27ED34C52C60BBF95DF30 /* LNURLSessionHook.h */,
-				DD35390927DBC69BC8EF54D2 /* LNURLSessionHook.m */,
-				DD89E7DAEC5F5F8C6F00E225 /* LNWebSocketClient.h */,
-				A46A49C062BDB22B61BBE7BC /* LNWebSocketClient.m */,
-				88AD862740A9FED5E6574088 /* NetInspector.h */,
-			);
-			path = NetInspector;
 			sourceTree = "<group>";
 		};
 		D4CC74EBFCAF08A1E61D64BF /* Products */ = {
@@ -108,12 +70,10 @@
 			isa = PBXGroup;
 			children = (
 				C558F4562A2F0D78FC9C88A8 /* ContentView.swift */,
-				DD1AA3A38D3F06A2F96095CB /* DemoApp-Bridging-Header.h */,
 				E03DECCC43EE647A543BD618 /* DemoAppApp.swift */,
 				51DEAD8E7F0261F1C8FA0AAE /* DemoAssets.swift */,
 				D5BEF51322657689BAC1175E /* DemoStore.swift */,
 				06C9E3AC1B12A9832A7EDD2A /* NetworkDemo.swift */,
-				A11E56F61BCF2843E4C00599 /* NetInspector */,
 			);
 			path = DemoApp;
 			sourceTree = "<group>";
@@ -135,6 +95,7 @@
 			name = DemoApp;
 			packageProductDependencies = (
 				9B3F22A73985ACB6776C461E /* DemoKit */,
+				B15F10ED9A7441EE6E7955D5 /* NetInspector */,
 			);
 			productName = DemoApp;
 			productReference = 154FAE636D5E23DF886F3868 /* DemoApp.app */;
@@ -165,6 +126,7 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				88CC9F668C1233DDC5EEF4B3 /* XCLocalSwiftPackageReference "../DemoKit" */,
+				60549C1E3CCAE5AB588EC39C /* XCLocalSwiftPackageReference "../../.." */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = D4CC74EBFCAF08A1E61D64BF /* Products */;
@@ -185,12 +147,6 @@
 				7747C7646C100FF7FA2C55F9 /* DemoAppApp.swift in Sources */,
 				5E4E80F735018AA48A88F257 /* DemoAssets.swift in Sources */,
 				2C3FB8935F60CFF52544D9AE /* DemoStore.swift in Sources */,
-				9B620DB4A324367B0AD0F84E /* LNBodyCoding.m in Sources */,
-				55E35D7EEBBB0E882D195111 /* LNNetInspector.m in Sources */,
-				3E0A31038C14AA891988460E /* LNOfflineQueue.m in Sources */,
-				0DE8657287A1BBB6A3C2AC5E /* LNURLProtocol.m in Sources */,
-				849491478D731856434B62F0 /* LNURLSessionHook.m in Sources */,
-				9199F9D79C1A2751384E1425 /* LNWebSocketClient.m in Sources */,
 				A607CD75037D2E4CB841ED73 /* NetworkDemo.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -324,18 +280,13 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 2C76VL32CX;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = DemoApp/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.netinspector.demo;
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_OBJC_BRIDGING_HEADER = "DemoApp/DemoApp-Bridging-Header.h";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
@@ -347,18 +298,13 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				DEVELOPMENT_TEAM = 2C76VL32CX;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = DemoApp/Info.plist;
-				LD_RUNPATH_SEARCH_PATHS = (
-					"$(inherited)",
-					"@executable_path/Frameworks",
-				);
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.example.netinspector.demo;
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = NO;
-				SWIFT_OBJC_BRIDGING_HEADER = "DemoApp/DemoApp-Bridging-Header.h";
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
@@ -387,6 +333,10 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
+		60549C1E3CCAE5AB588EC39C /* XCLocalSwiftPackageReference "../../.." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../../..;
+		};
 		88CC9F668C1233DDC5EEF4B3 /* XCLocalSwiftPackageReference "../DemoKit" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = ../DemoKit;
@@ -397,6 +347,10 @@
 		9B3F22A73985ACB6776C461E /* DemoKit */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = DemoKit;
+		};
+		B15F10ED9A7441EE6E7955D5 /* NetInspector */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = NetInspector;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
