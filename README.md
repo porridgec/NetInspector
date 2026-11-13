@@ -1,53 +1,62 @@
 # NetInspector — 局域网实时网络请求抓取与查看系统
 
-在没有 Charles / Proxyman（MitM 证书 + 代理）条件下，为 iOS App 提供的一套**内嵌式抓包方案**：
+在没有 Charles / Proxyman（MitM 证书 + 代理）条件下，为 iOS App 提供的一套**内嵌式抓包方案**：App 内嵌轻量拦截器，把请求/响应实时推送到 Mac 上的 Web Dashboard。
 
 ```
 ┌─────────────────────────── iOS App ───────────────────────────┐
-│  URLSession / Alamofire / AFNetworking / NSURLConnection …    │
+│  URLSession / Alamofire / AFNetworking / SPM Package …        │
 │        │ (URLProtocol 拦截 + SessionConfiguration swizzle)     │
 │        ▼                                                      │
 │  LNURLProtocol ──▶ LNNetInspector ──▶ LNWebSocketClient       │
 │                          │  断线时落盘（离线队列）              │
 └──────────────────────────┼────────────────────────────────────┘
-                           │ WebSocket  ws://<mac-ip>:9090/log
+                           │ WebSocket  ws://<mac>:9090/log[?token=…]
+                           │ HTTP 回退   POST http://<mac>:9090/log
                            ▼
 ┌────────────────────────── Mac ────────────────────────────────┐
-│  Node.js 服务（express + ws）── 环形缓冲区（500 条）            │
+│  Node.js 服务（express + ws）── 环形缓冲区（默认 500 条）        │
 │        │                                                      │
 │        ▼                                                      │
 │  Web Dashboard（Charles/Proxyman 风格双栏 UI）                 │
-│  http://<mac-ip>:9090                                         │
+│  http://<mac>:9090[?token=…]                                  │
 └───────────────────────────────────────────────────────────────┘
 ```
+
+**特性一览**
+
+- 拦截 URLSession / NSURLConnection / Alamofire / AFNetworking / **SPM 包**，Swift 与 Objective-C 项目通用（客户端为 OC 实现）
+- 实时 WebSocket 流 + **手机代理绕过** + **HTTP POST 回退通道**（只拦 WebSocket 的代理也能用）
+- 断网/断线自动落盘（磁盘离线队列），重连后批量冲刷
+- Charles 式 Dashboard：Host/Path 拆分列、列显示独立开关、搜索过滤、暂停跟随、重定向逐跳、JSON 树形折叠、**multipart Parts 视图**、图片预览、Copy as cURL
+- 内置安全模型：可选 TOKEN（cookie 持久化）、Host/Origin 校验、CSP、防原型污染
 
 ## 目录结构
 
 ```
 LogServer/
 ├── server/                     # Mac 端：Node.js 服务 + Web Dashboard
-│   ├── index.js                # 入口：HTTP API + WebSocket + 静态页面
-│   ├── demo-client.js          # 模拟设备回放假流量（无真机也能开发调试 UI）
+│   ├── index.js                # 入口：HTTP API + WebSocket + 安全中间件 + 静态页面
+│   ├── demo-client.js          # 模拟设备回放假流量（无真机也能调试 UI）
 │   ├── src/
-│   │   ├── logStore.js         # 固定容量环形缓冲区
+│   │   ├── logStore.js         # 固定容量环形缓冲区（截断来源标记）
 │   │   └── network.js          # 枚举本机局域网 IP
 │   └── public/                 # Dashboard（纯原生 HTML/CSS/JS，无构建步骤）
-│       ├── index.html
-│       ├── multipart.js        # multipart/form-data 解析器（Node 可测）
+│       ├── index.html          # 双栏布局 + 授权卡片 + 列菜单容器
+│       ├── multipart.js        # multipart/form-data 字节级解析器（Node 可测）
 │       ├── style.css
 │       └── app.js
-├── client/ios/NetInspector/    # iOS 端：Objective-C 模块（Swift/OC 通用）
+├── client/ios/NetInspector/    # iOS 端：Objective-C 模块（14 个文件，零依赖）
 │   ├── NetInspector.h          # 伞头文件
-│   ├── LNNetInspector.h/.m     # 公开门面（启停/配置）
-│   ├── LNURLProtocol.h/.m      # 录制型 URLProtocol
-│   ├── LNURLSessionHook.h/.m   # URLSessionConfiguration swizzle
-│   ├── LNWebSocketClient.h/.m  # WebSocket + 指数退避重连 + 心跳
+│   ├── LNNetInspector.h/.m     # 公开门面（启停/配置/令牌/连接状态回调）
+│   ├── LNNetInspector+Internal.h
+│   ├── LNURLProtocol.h/.m      # 录制型 URLProtocol（重定向逐跳/流式 body）
+│   ├── LNURLSessionHook.h/.m   # SessionConfiguration swizzle（+load 无条件注入）
+│   ├── LNWebSocketClient.h/.m  # WebSocket + 指数退避重连 + 心跳 + 代理绕过
 │   ├── LNOfflineQueue.h/.m     # 磁盘离线队列
-│   └── LNBodyCoding.h/.m       # Body 安全编码
-└── demo/ios/DemoApp/           # 演示工程（SwiftUI，直接打开编译运行）
-    ├── project.yml              # xcodegen 配置
-    ├── DemoApp.xcodeproj        # 已生成
-    └── DemoApp/                 # 源码 + NetInspector 快照 + 各种请求用例
+│   └── LNBodyCoding.h/.m       # Body 编码 + 流式缓冲（超限落盘）
+└── demo/ios/                   # 演示工程
+    ├── DemoApp/                # SwiftUI Demo（xcodegen 工程，直接打开运行）
+    └── DemoKit/                # 本地 SPM 包（验证包内网络请求同样被拦截）
 ```
 
 ---
@@ -55,89 +64,88 @@ LogServer/
 ## 一、最快体验（3 分钟）
 
 ```bash
-# ① Mac 端起服务
-cd server && npm install && npm start
+# ① Mac 端起服务（建议设令牌；不设会有安全告警）
+cd server && npm install
+TOKEN=my-secret npm start          # 无令牌：npm start
 
-# ② 打开 demo 工程，Cmd+R 跑起来（模拟器/真机均可）
+# ② 打开 demo 工程，Cmd+R（模拟器/真机均可）
 open demo/ios/DemoApp/DemoApp.xcodeproj
 
-# ③ App 里填入服务端横栏 IP → 点「应用并重启」→ 点请求按钮
-#    浏览器打开 http://<mac-ip>:9090 实时查看
+# ③ App 里填服务端横栏 IP（+ 令牌）→「应用并重启」→ 点请求按钮
+#    浏览器打开 http://<mac-ip>:9090/?token=my-secret 实时查看
 ```
 
-> 没有真机/不想开 Xcode？另开终端 `npm run demo` 用 Node 模拟设备回放流量。
+> 没有真机/不想开 Xcode？另开终端 `TOKEN=my-secret npm run demo` 用 Node 模拟设备回放流量。
 
 ---
 
-## 二、Mac 端使用说明
+## 二、Mac 端
+
+### 启动与环境变量
+
+```bash
+cd server && npm install
+npm start
+```
+
+| 环境变量 | 默认 | 说明 |
+| --- | --- | --- |
+| `PORT` | `9090` | 服务端口 |
+| `HOST` | `0.0.0.0` | 监听地址（`127.0.0.1` = 仅本机） |
+| `TOKEN` | 空（不鉴权） | 访问令牌；设置后 Dashboard/API/WS/HTTP 回退全部需要 |
+| `MAX_LOGS` | `500` | 环形缓冲区条数 |
+| `MAX_BODY_BYTES` | `262144`（256 KiB） | 单 body 存储上限；WS 消息与 HTTP 回退上限自动跟随 |
+
+启动横幅会打印本机局域网 IP、Dashboard 地址（含 token）和 iOS 配置提示。
 
 ### 安全模型（重要）
 
-NetInspector 抓取的是 **App 的完整请求/响应**——包含登录 token、Cookie、密码等敏感数据。公网/多人局域网部署前请务必了解：
+NetInspector 抓取的是 **App 的完整请求/响应**——包含登录 token、Cookie、密码等敏感数据。多人局域网/公司网部署前请务必了解：
 
 | 防护 | 说明 |
 | --- | --- |
-| **访问令牌（推荐）** | `TOKEN=your-secret npm start`。启用后 Dashboard、REST API、WebSocket、HTTP 回退通道**全部**需要令牌（浏览器打开 `http://ip:9090/?token=your-secret`；iOS 端设置 `inspector.authToken`）。未设置时服务端启动横幅会给出告警。 |
-| **默认仅监听局域网** | 服务监听 `0.0.0.0`（局域网可访问）。如需更严格：`HOST=127.0.0.1` 仅本机（配 iPhone 真机时不可用）。 |
+| **访问令牌（推荐）** | `TOKEN=your-secret npm start`。Dashboard、REST API、WebSocket、HTTP 回退通道**全部**受保护。浏览器打开 `http://ip:9090/?token=your-secret` 校验通过后服务端下发 **HttpOnly cookie（1 年）**，此后新标签页/重启浏览器自动免 token；iOS 端设置 `inspector.authToken`。未设置时启动横幅会醒目告警。 |
+| **授权卡片** | 未授权打开 Dashboard 会显示粘贴令牌的输入框，校验错误有红字提示（服务端 `/api/auth` 为唯一鉴权状态来源）。 |
 | **DNS rebinding 防护** | 校验 `Host` 头（仅允许 localhost / IP 字面量 / `*.local` / 本机主机名）。 |
 | **跨站 WebSocket 防护** | 校验 `Origin`：浏览器页面必须同主机，防任意网页跨站偷读抓包数据。 |
-| **XSS 防护** | Dashboard 所有不可信内容一律 `textContent` 渲染；响应带严格 CSP；图片预览仅允许栅格格式 mime；事件字段过滤 `__proto__` 防原型污染。 |
-| **终端注入防护** | 控制台输出剥离控制字符（防 ANSI 逃逸注入）。 |
-| **传输加密** | 局域网明文 `ws://` / `http://`。仅建议在可信网络使用；不要在公共 Wi-Fi 上抓取敏感流量。 |
-| **设备端落地数据** | 离线队列文件位于 App `Caches/netinspector.queue/`（明文 JSON），调试结束可删除。 |
+| **XSS 防护** | 不可信内容一律 `textContent` 渲染；严格 CSP + XFO + nosniff；图片预览仅允许栅格 mime；事件字段过滤 `__proto__`。 |
+| **终端注入防护** | 控制台输出剥离控制字符。 |
+| **传输加密** | 局域网明文 `ws://` / `http://`。仅建议在可信网络使用。 |
+| **设备端落地数据** | 离线队列位于 App `Caches/netinspector.queue/`（明文 JSON），调试结束可删除。 |
 
-> 原则：这是**本地调试工具**，请只在你信任的局域网内运行，并始终设置 TOKEN。
-
-
-```bash
-cd server
-npm install
-npm start
-# 或自定义：PORT=9090 MAX_LOGS=500 MAX_BODY_BYTES=262144 npm start
-```
-
-启动后终端会打印本机局域网 IP 和对应的 iOS 配置代码：
-
-```
-⚡ NetInspector server is running
-  Dashboard :  http://localhost:9090
-               http://192.168.1.8:9090
-  iOS host  :  LNNetInspector.shared.host = @"192.168.1.8"   port = 9090
-```
-
-浏览器打开 `http://<mac-ip>:9090` 即可看到 Dashboard。
-
-> **没有真机也想先看看效果？** 另开一个终端运行 `npm run demo`，会模拟一台设备持续回放 JSON / 表单 / 图片 / 404 / 500 / 超时 / 重定向等真实形态的流量。
-> 服务端启用了 `TOKEN` 时，demo 也要带同一环境变量：`TOKEN=xxx npm run demo`。
+> 原则：这是**本地调试工具**，只在信任的局域网内运行，并始终设置 TOKEN。
 
 ### Dashboard 功能
 
-- **请求列表**：Method / Host / Path（可拆分显示）/ Status / 耗时 / 响应大小 / 时间，多设备时显示 Device 列
-- **列显示配置**：工具栏「▾ 列」菜单，每个列（含 URL 整列）可独立开关并持久化
-- **过滤**：搜索框支持 `关键词`、`method:GET`、`status:404`、`status:5xx`、`status:>=400`、`host:api`（空格分隔 = AND），另有 Method / 状态分类下拉
-- **暂停/继续**：`⏸ Pause` 按钮或空格键暂停实时刷新（后台继续缓存，恢复时批量刷入）
-- **自动跟随滚动**：滚离底部自动暂停跟随，出现 "↓ new requests" 悬浮按钮
+- **请求列表**：Method / **Host** / **Path**（URL 拆分，query 摘要）/ Status / 耗时 / 响应大小 / 时间，多设备时显示 Device
+- **列显示配置**：工具栏「▾ 列」菜单，9 个列（含可选整段 URL、Device）独立开关并持久化；「恢复默认」一键还原
+- **过滤**：搜索支持 `关键词`、`method:GET`、`status:404`、`status:5xx`、`status:>=400`、`host:api`（空格 = AND），另有 Method / 状态分类下拉
+- **暂停/继续**（空格键）、**自动跟随时滚动**（滚离底部暂停，出现 ↓ new requests 按钮）
 - **详情三 Tab**：
-  - *Overview*：URL、状态、起止时间、耗时、Body 大小/类型、错误信息、Query 参数
+  - *Overview*：URL、状态、起止时间、耗时、Body 大小/类型（含截断来源）、错误信息、Query 参数
   - *Request / Response*：Headers 表格、Body 查看器——
     - JSON：树形折叠 + 语法着色、Raw 切换
-    - **multipart/form-data：Parts 视图**（每个 part 显示字段名 / 文件名 / Content-Type / 大小 / 截断标记；文本字段值内联显示；文件 part 支持 Hex 预览、图片直接预览、单独 Download；Parts ↔ Raw 一键切换；兼容带引号 boundary 与 LF 换行的宽容解析）
-    - 二进制：Hex 预览 + 整体下载、图片直接预览
+    - **multipart/form-data：Parts 视图**（字段名 / 文件名 / Content-Type / 大小 / 截断标记；文本值内联；文件 Hex 预览、图片直接渲染、单独 Download；兼容引号 boundary 与 LF 换行）
+    - 二进制：Hex 预览 + 下载；图片直接预览（栅格格式白名单）
     - 表单：urlencoded 参数解析
-- **Copy as cURL**：一键把请求还原为 curl 命令
-- **键盘操作**：↑/↓ 切换选中请求，空格暂停
-- 可拖拽分割条（双击复位），布局宽度本地记忆
+- **Copy as cURL** 一键还原请求
+- 键盘 ↑/↓ 切换请求；可拖拽分割条（双击复位）；布局与列配置本地记忆
 
 ### HTTP API
 
+除 `/api/auth` 外均需令牌（query `?token=`、header `x-ni-token` 或 cookie 任一）。
+
 | 方法 | 路径 | 说明 |
 | --- | --- | --- |
+| `GET` | `/api/auth[?token=]` | 鉴权状态 `{tokenRequired, authorized}`；带正确 token 时下发 cookie |
 | `GET` | `/api/status` | 缓冲区容量/条数、累计接收数 |
 | `GET` | `/api/logs?limit=&offset=` | 日志列表（最新在前，不含 body） |
 | `GET` | `/api/logs/:id` | 单条完整事件（含 body） |
 | `DELETE` | `/api/logs` | 清空缓冲区 |
+| `POST` | `/log` | HTTP 回退投递通道（与 WS 相同消息格式） |
+| `GET` | `/ping` | 探活 |
 
-WebSocket：设备接入 `ws://<ip>:9090/log`，浏览器接入 `ws://<ip>:9090/dashboard`。
+WebSocket 升级：设备 `ws://<ip>:9090/log`，浏览器 `ws://<ip>:9090/dashboard`；未知路径显式 404。
 
 ---
 
@@ -145,7 +153,7 @@ WebSocket：设备接入 `ws://<ip>:9090/log`，浏览器接入 `ws://<ip>:9090/
 
 ### 1. 拷贝文件
 
-把 `client/ios/NetInspector/` 下 **10 个文件**（`.h` + `.m`）拖进 Xcode 工程（勾选 Add to targets，无需 Copy Sources 之外的任何配置）。**零第三方依赖**。
+把 `client/ios/NetInspector/` 下 **14 个文件**（`.h` + `.m`）拖进 Xcode 工程（Add to targets）。**零第三方依赖**。
 
 ### 2. ATS 例外（仅 Debug）
 
@@ -160,129 +168,143 @@ WebSocket：设备接入 `ws://<ip>:9090/log`，浏览器接入 `ws://<ip>:9090/
 </dict>
 ```
 
-> 若 App 的 Debug 构建和 Release 共用 Info.plist，可在 Xcode → target → Info 里按 Configuration 拆分，或用 xcconfig 控制该 key 只在 `$(CONFIGURATION)=Debug` 时生效。
+> 若 Debug/Release 共用 Info.plist，可按 Configuration 拆分，或用 xcconfig 控制该 key 只在 Debug 生效。
 
-### 3. 初始化（AppDelegate）
+### 3. 初始化（Swift / Objective-C）
+
+**Swift**（桥接头 `#import "NetInspector.h"`）：
+
+```swift
+#if DEBUG
+let inspector = LNNetInspector.shared()
+inspector.host = "192.168.1.8"      // ← 服务端横幅里的 IP
+inspector.port = 9090
+inspector.authToken = "my-secret"   // ← 服务端设置了 TOKEN 时必填
+inspector.onConnectionChange = { connected, reason in
+    print("NetInspector connected:", connected, reason ?? "")
+}
+inspector.start()
+#endif
+```
 
 **Objective-C：**
 
 ```objc
-// AppDelegate.m
-#import "NetInspector.h"
-
-- (BOOL)application:(UIApplication *)application
-        didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
-
 #if DEBUG
-    [[LNNetInspector shared] startWithHost:@"192.168.1.8"   // ← 你的 Mac IP
-                                      port:9090];
-#endif
-    return YES;
-}
-```
-
-**Swift：**
-
-先配置桥接头（Target → Build Settings → Objective-C Bridging Header）：
-
-```objc
-// YourApp-Bridging-Header.h
-#import "NetInspector.h"
-```
-
-```swift
-// AppDelegate.swift / @main App struct 的 init()
-#if DEBUG
-let inspector = LNNetInspector.shared()
-inspector?.host = "192.168.1.8"   // ← 你的 Mac IP
-inspector?.start()
-#endif
-```
-
-> SwiftUI 生命周期没有 AppDelegate 时，放在 `App.init()` 或首个 Scene 的 `onAppear` 中都可以（越早越好，见下方"拦截范围"）。
-
-### 4. 常用配置（可选，均在 `start` 之前设置）
-
-```objc
 LNNetInspector *inspector = [LNNetInspector shared];
 inspector.host = @"192.168.1.8";
-inspector.port = 9090;                          // 默认 9090
-inspector.ignoredHosts = @[@"*.sentry.io",
-                           @"logs.example.com"]; // 不想抓的域名（支持通配符）
-inspector.maxBodyCaptureBytes = 256 * 1024;     // 单个 body 保留上限（默认 256 KiB）
-inspector.maxStreamBodyBytes   = 32 * 1024 * 1024; // 流式 body 缓冲上限（默认 32 MiB）
-inspector.offlineQueueCapacity = 500;           // 断网时磁盘队列容量（默认 500）
+inspector.authToken = @"my-secret";   // 可选
+inspector.start;
+#endif
 ```
 
-### 5. 拦截范围说明
+> SwiftUI 没有 AppDelegate 时放在 `App.init()`（越早越好，尽量不漏启动期请求）。
+
+### 4. 配置项（均在 `start` 之前设置）
+
+```objc
+inspector.host = @"192.168.1.8";
+inspector.port = 9090;                          // 默认 9090
+inspector.authToken = @"my-secret";             // 可选，与服务端 TOKEN 一致
+inspector.ignoredHosts = @[@"*.sentry.io"];     // 不想抓的域名（支持通配符）
+inspector.maxBodyCaptureBytes = 256 * 1024;     // body 保留上限（默认 256 KiB）
+inspector.maxStreamBodyBytes   = 32 * 1024 * 1024; // 流式缓冲上限（默认 32 MiB）
+inspector.offlineQueueCapacity = 500;           // 离线队列容量
+
+// 连接状态（主线程回调；也可读 inspector.wsConnected）
+inspector.onConnectionChange = ^(BOOL connected, NSString *reason) { ... };
+```
+
+### 5. 拦截范围
 
 | 流量来源 | 是否拦截 | 原理 |
 | --- | --- | --- |
 | `URLSession`（默认/临时配置） | ✅ | swizzle `NSURLSessionConfiguration`，把 `LNURLProtocol` 插入 `protocolClasses` |
 | `URLSession.shared` / `NSURLConnection` | ✅ | 全局 `[NSURLProtocol registerClass:]` |
-| **Swift Package（SPM）内的网络请求** | ✅ | 与主项目同进程、同一 URL Loading System。hook 在 `+load` 时**无条件注入**（早于任何 Swift 代码执行），因此包内 `static let session = URLSession(...)` 这类"早于 `-start` 创建"的长寿单例同样被覆盖；真正的开关在 `canInitWithRequest:`，未启用时零开销 |
-| Alamofire / AFNetworking / Moya / SDWebImage 等 | ✅ | 全部基于 URLSession，被上面两条覆盖 |
-| Network.framework（NWConnection）/ 自定义 socket | ❌ | 不经过 URL Loading System |
-| WKWebView | ❌ | 网络请求发生在独立进程，URLProtocol 无法覆盖（可用 `WKURLSchemeHandler` 另行扩展） |
-| App Extension / Widget / Watch 进程 | ❌ | 独立进程，需在对应 target 单独集成并启动 |
-| `backgroundSessionConfiguration` | ❌ | 系统 API 限制，background session 忽略 protocolClasses |
-| 命中缓存的请求 | 可能不显示 | 缓存命中时加载系统不会发起请求；本工具刻意不改缓存策略以免影响 App 行为 |
-| 下载/上传任务的 body | 部分 | 请求 body 已尽力捕获；超大（>32 MiB）流式 body 只记录截断说明 |
+| **SPM 包内网络请求** | ✅ | 同进程同 URL Loading System；hook 在 `+load` 时**无条件注入**，包内早于 `-start` 创建的长寿 session 同样覆盖 |
+| Alamofire / AFNetworking / Moya / SDWebImage | ✅ | 全部基于 URLSession |
+| Network.framework / 自定义 socket | ❌ | 不经过 URL Loading System |
+| WKWebView | ❌ | 独立进程（可用 `WKURLSchemeHandler` 扩展） |
+| App Extension / Widget / Watch | ❌ | 独立进程，需在对应 target 单独集成 |
+| `backgroundSessionConfiguration` | ❌ | 系统限制，忽略 protocolClasses |
+| 命中缓存的请求 | 可能不显示 | 缓存命中不发起请求；本工具刻意不改缓存策略 |
+| 超大流式 body 的展示 | 截断说明 | 转发永远完整；展示受 `maxBodyCaptureBytes` / `MAX_BODY_BYTES` 限制 |
 
 ### 6. 工作机制（为什么不会破坏 App 网络）
 
-- **纯镜像式设计**：`LNURLProtocol` 用一个内部 `NSURLSession` 真实转发请求，数据原样回投给 App 的 `URLProtocolClient`，转发链路对业务完全透明；
-- **multipart / 大上传安全**：流式请求体 ≤32 MiB 常驻内存，超出自动落盘临时文件转发（结束后清理），**任何体积的上传都不会被截断或破坏**，展示层仍只保留 256 KiB；
-- **防递归**：内部转发的请求打标记跳过二次拦截；日志服务自身的连接按 host 过滤，不会反馈循环；
-- **Body 上限**：展示层最多保留 256 KiB（可配），转发不受影响；
-- **内存安全**：服务端环形缓冲区固定 500 条；设备端离线队列有容量与字节双上限；
-- **断线自愈**：指数退避重连（0.5s→30s + 抖动）+ 20s 心跳；断网期间事件写入 `Caches/netinspector.queue/`，连上后分批冲刷。
+- **纯镜像式转发**：内部 `NSURLSession` 真实加载并把数据原样回投，业务无感知；
+- **multipart / 大上传安全**：流式请求体 ≤32 MiB 常驻内存，超出自动落盘临时文件转发（结束后清理），**任何体积上传都不会被截断**；
+- **防递归**：内部请求打标记、日志服务连接按 host 过滤；
+- **断线自愈**：指数退避重连（0.5s→30s + 抖动）+ 20s 心跳；断网落盘，连上批量冲刷；
+- **代理环境**：日志 WS 会话绕过系统代理直连；WS 连续失败 ≥2 次自动切 HTTP 回退通道。
 
 ---
 
-## 四、常见问题
+## 四、Demo 工程
+
+`demo/ios/DemoApp/` 是可直接运行的 SwiftUI 演示（详见其 README）：
+
+- 11 种请求形态按钮：JSON/表单/**multipart（带真图）**/图片/404/重定向/慢请求/不可达/**SPM 包请求 ×2**
+- 服务端配置（IP/端口/令牌）持久化 + **实时连接状态**（已连接 / 重连中… / 未启动，失败原因可见）
+- 自动连发（每 3 秒随机）与「全部来一发」
+- 启动参数：`-ni-autofire`、`-ni-fireall`（自动化/截图用）
+- 内含本地 SPM 包 `DemoKit`，验证包内早建 session 同样被拦截
+
+---
+
+## 五、常见问题
 
 **列表一直是空的？**
 1. iPhone 和 Mac 是否在同一 Wi-Fi / 网段？（公司网/酒店网常开 AP 隔离，手机热点最稳）
-2. Mac IP 是否变了？（server 启动横幅里有最新 IP，**以横幅为准**，不要用手机自己的 IP）
-3. Debug Info.plist 是否加了 ATS 例外？（控制台会有 ATS 报错日志）
-4. macOS 防火墙是否放行了 node 的入站连接？
+2. Mac IP 是否变了？**以服务端横幅为准**，不要用手机自己的 IP
+3. Debug Info.plist 是否加了 ATS 例外？
+4. 服务端是否启用了 TOKEN 而 iOS 端没配 `authToken`？（Dashboard 顶部会显示「需要访问令牌」）
+5. macOS 防火墙是否放行 node 入站连接？
+
+**Dashboard 显示「需要访问令牌」/ 令牌验证失败？**
+- 服务端控制台会打印 `[!] 401 … (token 缺失 / 不匹配)`，据此判断是没带还是值不对
+- 令牌含 `$`、空格等特殊字符时**必须用引号**启动：`TOKEN='my secret' npm start`
+- 直接在授权卡片粘贴令牌即可（校验通过后 cookie 固化，之后新标签页/重启浏览器都免输入）
+- 确认服务端实际拿到的值：同一终端 `echo "[$TOKEN]"`
+
+**Dashboard 一直显示 connecting… / 页面空白？**
+1. 打开浏览器开发者工具 Console，看是否有红色 JS 报错（发 issue 时附上）
+2. 静态资源已配置 `no-cache`（每次重验证）且引用带版本号，正常刷新即最新；极端情况用无痕窗口排除缓存
+3. Network 面板看 `/api/auth` 是否 200、`/dashboard` WS 是否 101
 
 **Body 显示不完整 / 提示「已截断」？**
+三层独立上限（Dashboard 横幅会标明是谁截断的）：
 
-Body 经过三层独立上限，缺哪层调哪层（Dashboard 横幅会标明**是谁截断的**）：
-
-| 层 | 参数 | 默认 | 说明 |
-| --- | --- | --- | --- |
-| iOS 捕获 | `maxBodyCaptureBytes` | 256 KiB | `-start` 前设置；二进制以 base64 传输会膨胀 4/3 |
-| iOS 流式缓冲 | `maxStreamBodyBytes` | 32 MiB | `uploadTask`/multipart 走流式路径，**捕获量不会超过它**；要抓 >32 MiB 的上传需同时调大 |
-| 服务端存储 | `MAX_BODY_BYTES`（env） | 256 KiB | 环形缓冲区内所有事件的内存占用 = MAX_LOGS × MAX_BODY_BYTES，调大时建议同时调小 `MAX_LOGS` |
+| 层 | 参数 | 默认 |
+| --- | --- | --- |
+| iOS 捕获 | `maxBodyCaptureBytes` | 256 KiB |
+| iOS 流式缓冲 | `maxStreamBodyBytes` | 32 MiB（>32 MiB 上传要完整捕获需同时调大） |
+| 服务端存储 | `MAX_BODY_BYTES` | 256 KiB（内存 ≈ MAX_LOGS × MAX_BODY_BYTES，调大时建议调小 MAX_LOGS） |
 
 ```bash
-# 例：完整保留 128 MiB body（传输层消息上限会自动跟随，无需另设）
 MAX_BODY_BYTES=$((128*1024*1024)) MAX_LOGS=50 npm start
 ```
 
-> 服务端发生截断时控制台会打印醒目告警（前 3 次）；Dashboard 横幅区分
-> 「服务端存储上限」/「客户端捕获上限」并显示 `已捕获 / 原始大小`。
-
 **手机开着代理（Wi-Fi 手动代理 / Shadowrocket / Surge / 公司网关）导致 `-1011 從伺服器傳來錯誤的回應`？**
 
-原因：代理把 WebSocket 的 `Upgrade` 请求当普通 HTTP 处理，返回了错误页而不是 `101` 升级。客户端已内置**双重应对**，开代理也能用：
+代理把 WebSocket 的 `Upgrade` 当普通 HTTP 处理。客户端双重应对：
 
-1. **自动绕过代理直连**：日志 WebSocket 会话设置了 `connectionProxyDictionary = @{}`，Wi-Fi 手动代理/PAC 场景下直接绕开代理连 Mac；
-2. **HTTP 回退通道**：若 ws 连续失败 ≥2 次（VPN 型代理会截获所有流量，绕不过），自动切换为 `POST http://<mac>:9090/log` 逐批投递（普通 HTTP 常能穿过只拦 WebSocket 的代理层）；ws 恢复后自动切回。控制台会打印 `⇄ 启用 HTTP 回退通道`。
+1. **自动绕过代理直连**（`connectionProxyDictionary = @{}`，Wi-Fi 手动代理/PAC 直接绕开）
+2. **HTTP 回退通道**：ws 连续失败 ≥2 次自动切 `POST /log` 逐批投递；ws 恢复自动切回（控制台打印 `⇄ 启用 HTTP 回退通道`）
 
-若 HTTP 回退也不通（VPN 全量转发且规则不放行内网），需在代理 App 的分流规则里把 Mac IP（如 `10.190.228.5`）设为 **DIRECT**，或让 Mac 与手机处于同一热点。验证可达性：手机 Safari 打开 `http://<mac-ip>:9090`，Dashboard 能加载即网络通。
+若回退也不通（VPN 全量转发），在代理 App 分流规则里把 Mac IP 设为 **DIRECT**，或让 Mac 加入手机热点。
+
+**`npm run demo` 报 401？**
+demo 与服务器需用同一 TOKEN：`TOKEN=xxx npm run demo`。
 
 **为什么没有 DNS/TLS 耗时分解？**
-`URLProtocol` 层看不到协议栈细节，只统计端到端总耗时。需要精细时间线时可在抓到问题请求后用 `Copy as cURL` 在 Mac 上复现分析。
+`URLProtocol` 层看不到协议栈细节，只统计端到端总耗时；需要精细时间线可用 Copy as cURL 在 Mac 复现。
 
-**App 端误报 "iOS 13 以下"？**
-实时传输需要 iOS 13+；低版本设备上事件仍会写磁盘队列，升级/换设备后连接成功即自动冲刷。
+**App 端提示 "iOS 13 以下"？**
+实时传输需要 iOS 13+；低版本事件仍写磁盘队列，升级后连接成功自动冲刷。
 
 **清理设备端离线队列？**
-删除 App 重装，或删除 App 沙盒 `Library/Caches/netinspector.queue/` 目录。
+重装 App，或删除沙盒 `Library/Caches/netinspector.queue/`。
 
 ---
 

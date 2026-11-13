@@ -5,8 +5,8 @@
 ## 运行
 
 ```bash
-# ① Mac 端起服务（记住横幅里的 IP）
-cd server && npm start
+# ① Mac 端起服务（记住横幅里的 IP；建议设令牌）
+cd server && TOKEN=my-secret npm start
 
 # ② 用 Xcode 打开 demo 工程
 open demo/ios/DemoApp/DemoApp.xcodeproj
@@ -15,6 +15,14 @@ open demo/ios/DemoApp/DemoApp.xcodeproj
 ```
 
 App 首页 → 「Mac 服务端」→ 填入横栏 IP（服务端启用了 `TOKEN` 时再填访问令牌）→ 「应用并重启」→ 浏览器打开 `http://<ip>:9090/?token=<令牌>`，然后点请求按钮即可实时看到流量。
+
+状态灯含义：
+
+| 指示灯 | 含义 |
+| --- | --- |
+| 灰 · 未启动 | inspector 未运行 |
+| 🟠 重连中… | 已启动但 WS 未连通（下方橙字显示具体原因：令牌错误 / IP 不通等） |
+| 🟢 已连接 | 实时通道正常 |
 
 ## 覆盖的请求形态（对应 Dashboard 各视图）
 
@@ -41,22 +49,24 @@ App 首页 → 「Mac 服务端」→ 填入横栏 IP（服务端启用了 `TOKE
 - `-ni-autofire`：启动即自动连发
 - `-ni-fireall`：启动 2 秒后每种请求各触发一次
 
-App 的服务端地址持久化在 `UserDefaults`（`demo.serverHost` / `demo.serverPort`），可预先写入：
+App 的服务端地址/令牌持久化在 `UserDefaults`，可预先写入：
 
 ```bash
 xcrun simctl spawn <UDID> defaults write com.example.netinspector.demo demo.serverHost 127.0.0.1
+xcrun simctl spawn <UDID> defaults write com.example.netinspector.demo demo.serverPort 9090
+xcrun simctl spawn <UDID> defaults write com.example.netinspector.demo demo.serverToken demo-secret
 ```
 
 ## 结构
 
 ```
 DemoApp/
-├── project.yml                    # xcodegen 配置（重新生成工程用；含本地包 DemoKit 依赖）
+├── project.yml                    # xcodegen 配置（含本地包 DemoKit 依赖）
 ├── DemoApp.xcodeproj              # 已生成，直接打开即可
 └── DemoApp/
-    ├── DemoAppApp.swift           # @main；启动时先 DemoKit.warmup() 再 start（验证早建 session 拦截）
-    ├── ContentView.swift          # 控制台 UI
-    ├── DemoStore.swift            # 状态/配置/自动连发
+    ├── DemoAppApp.swift           # @main；启动时先 DemoKit.warmup() 再 start
+    ├── ContentView.swift          # 控制台 UI（含连接状态徽标）
+    ├── DemoStore.swift            # 状态/配置/令牌/连接状态/自动连发
     ├── NetworkDemo.swift          # 各种请求用例（不同 session 形态 + SPM 包）
     ├── DemoAssets.swift           # 真实 JPEG（multipart 演示用，生成产物）
     ├── DemoApp-Bridging-Header.h  # #import "NetInspector/NetInspector.h"
@@ -73,4 +83,5 @@ DemoApp/
 - iPhone 17 模拟器 (iOS 26.2) + macOS Node 服务端
 - 全部 11 种形态捕获 ✅（含 **SPM 包内早建 session / ephemeral session**）
 - 重定向逐跳 ✅、multipart Parts 视图 ✅、图片预览 ✅、错误事件 ✅、
-  断线落盘重连冲刷 ✅、手机代理场景（代理绕过 + HTTP 回退）✅
+  断线落盘重连冲刷 ✅、手机代理场景（代理绕过 + HTTP 回退）✅、
+  **TOKEN 鉴权模式全链路 ✅**
