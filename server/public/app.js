@@ -155,6 +155,7 @@
     byId: new Map(),
     detailCache: new Map(),
     selectedId: null,
+    selectedIds: new Set(), // 勾选/框选用于导出的日志 id
     paused: false,
     pending: [],           // events buffered while paused
     follow: true,
@@ -205,6 +206,17 @@
   function renderHead() {
     const row = $('#headRow');
     row.textContent = '';
+    // 选择列（固定最左，不参与列配置）
+    const selTh = el('th', { class: 'c-sel' });
+    const selAll = el('input', { type: 'checkbox', title: '全选 / 取消全选（当前筛选结果）' });
+    selAll.addEventListener('change', () => {
+      const ids = [...tbody.querySelectorAll('tr[data-id]')].map((r) => r.dataset.id);
+      if (selAll.checked) ids.forEach((id) => state.selectedIds.add(id));
+      else ids.forEach((id) => state.selectedIds.delete(id));
+      syncSelectionUI();
+    });
+    selTh.append(selAll);
+    row.append(selTh);
     for (const c of visibleColumnDefs()) row.append(el('th', { class: c.cls, text: c.label }));
   }
 
@@ -242,6 +254,14 @@
 
   function rowFor(e) {
     const tr = el('tr', { 'data-id': e.id, class: 'new' });
+    // 选择列（事件统一在 tbody 上做委托，clone 后依然有效）
+    const selTd = el('td', { class: 'c-sel' });
+    const cb = el('input', { type: 'checkbox', title: '勾选此条（用于导出）' });
+    cb.checked = state.selectedIds.has(e.id);
+    selTd.append(cb);
+    tr.append(selTd);
+    if (state.selectedIds.has(e.id)) tr.classList.add('checked');
+
     for (const c of visibleColumnDefs()) tr.append(CELL_RENDERERS[c.id](e));
     tr.addEventListener('animationend', () => tr.classList.remove('new'), { once: true });
     return tr;
@@ -275,12 +295,100 @@
     $('#emptyList').style.display = shown ? 'none' : 'flex';
     updateStats();
     updateSelectionHighlight();
+    syncSelectionUI();
     if (state.follow) requestAnimationFrame(() => { scroller.scrollTop = scroller.scrollHeight; });
   }
 
   function updateStats() {
     const shown = [...state.events].filter(matches).length;
     $('#stats').textContent = `${shown} / ${state.events.length}`;
+  }
+
+  /* ------------------------------ 选择 / 导出 / 导入 ------------------------------ */
+
+  function updateSelInfo() {
+    const info = $('#selInfo');
+    if (!info) return;
+    const n = state.selectedIds.size;
+    info.hidden = n === 0;
+    info.textContent = `已选 ${n}`;
+  }
+
+  function updateHeadSelState() {
+    const box = $('#headRow .c-sel input');
+    if (!box) return;
+    const rows = [...tbody.querySelectorAll('tr[data-id]')];
+    const sel = rows.filter((r) => state.selectedIds.has(r.dataset.id)).length;
+    box.checked = rows.length > 0 && sel === rows.length;
+    box.indeterminate = sel > 0 && sel < rows.length;
+  }
+
+  function syncSelectionUI() {
+    for (const tr of tbody.querySelectorAll('tr[data-id]')) {
+      const checked = state.selectedIds.has(tr.dataset.id);
+      tr.classList.toggle('checked', checked);
+      const cb = tr.querySelector('.c-sel input');
+      if (cb) cb.checked = checked;
+    }
+    updateHeadSelState();
+    updateSelInfo();
+  }
+
+  /** 导出范围：有勾选 → 勾选的；无勾选 → 当前筛选结果 */
+  function exportTargetIds() {
+    if (state.selectedIds.size > 0) {
+      return [...state.selectedIds].filter((id) => state.byId.has(id));
+    }
+    return [...new Set([...tbody.querySelectorAll('tr[data-id]')].map((r) => r.dataset.id))];
+  }
+
+  async function exportLogs() {
+    const ids = exportTargetIds();
+    if (!ids.length) { toast('没有可导出的日志'); return; }
+    try {
+      const r = await fetch('/api/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const blob = await r.blob();
+      const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+      const a = el('a', { href: URL.createObjectURL(blob), download: `netinspector-${stamp}.json` });
+      document.body.append(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+      toast(`已导出 ${ids.length} 条日志`);
+    } catch (err) {
+      toast(`导出失败：${err.message}`);
+    }
+  }
+
+  async function importLogs(file) {
+    try {
+      let parsed;
+      try {
+        parsed = JSON.parse(await file.text());
+      } catch {
+        throw new Error('不是有效的 JSON 文件');
+      }
+      const payload = parsed && parsed.format === 'netinspector-export' ? parsed
+        : (Array.isArray(parsed) ? { events: parsed } : null);
+      if (!payload || !Array.isArray(payload.events)) {
+        throw new Error('不是 NetInspector 导出文件');
+      }
+      const r = await fetch('/api/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ events: payload.events }),
+      });
+      const result = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(result.error || `HTTP ${r.status}`);
+      await reloadHistory();
+      toast(`导入完成：新增 ${result.imported} 条，跳过 ${result.skipped} 条（重复/无效）`);
+    } catch (err) {
+      toast(`导入失败：${err.message}`);
+    }
   }
 
   function updateSelectionHighlight() {
@@ -294,16 +402,18 @@
   function ingest(e, { silent = false } = {}) {
     if (!e || !e.id) return;
     const known = state.byId.get(e.id);
-    state.byId.set(e.id, e);
     if (known) {
+      // 同 id 更新（导入回放 / ws 与服务端重载竞态）：只替换缓存，不重复插行
+      state.byId.set(e.id, e);
       const i = state.events.indexOf(known);
       if (i >= 0) state.events[i] = e;
-    } else {
-      state.events.push(e);
-      if (state.events.length > 3000) {
-        const dropped = state.events.shift();
-        if (dropped) { state.byId.delete(dropped.id); state.detailCache.delete(dropped.id); }
-      }
+      return;
+    }
+    state.byId.set(e.id, e);
+    state.events.push(e);
+    if (state.events.length > 3000) {
+      const dropped = state.events.shift();
+      if (dropped) { state.byId.delete(dropped.id); state.detailCache.delete(dropped.id); }
     }
     if (state.paused && !silent) {
       state.pending.push(e);
@@ -873,6 +983,7 @@
     state.detailCache.clear();
     state.pending = [];
     state.selectedId = null;
+    state.selectedIds.clear();
     state.current = null;
     tbody.textContent = '';
     $('#emptyList').style.display = 'flex';
@@ -880,14 +991,85 @@
     $('#detailEmpty').style.display = 'flex';
     $('#pauseBtn').textContent = '⏸ Pause';
     updateStats();
+    updateSelInfo();
   }
 
   /* ------------------------------ UI wiring ------------------------------ */
 
   function bindUI() {
+    let lastDragEnd = 0;
+
     tbody.addEventListener('click', (ev) => {
+      if (Date.now() - lastDragEnd < 150) return; // 拖选结束后的残影 click 忽略
+      if (ev.target.closest('input, a, button')) return;
       const tr = ev.target.closest('tr[data-id]');
       if (tr) select(tr.dataset.id);
+    });
+
+    // 勾选（事件委托：refilter 用 cloneNode 重建行后依然有效）
+    tbody.addEventListener('change', (ev) => {
+      const cb = ev.target.closest('.c-sel input');
+      if (!cb) return;
+      const tr = cb.closest('tr[data-id]');
+      if (!tr) return;
+      if (cb.checked) state.selectedIds.add(tr.dataset.id);
+      else state.selectedIds.delete(tr.dataset.id);
+      tr.classList.toggle('checked', cb.checked);
+      updateSelInfo();
+      updateHeadSelState();
+    });
+
+    // 鼠标拖拽框选（按行范围）
+    let drag = null; // { anchorId, startY, active }
+    tbody.addEventListener('pointerdown', (ev) => {
+      if (ev.button !== 0) return;
+      if (ev.target.closest('input, a, button')) return;
+      const tr = ev.target.closest('tr[data-id]');
+      if (!tr) return;
+      drag = { anchorId: tr.dataset.id, startY: ev.clientY, active: false };
+    });
+    window.addEventListener('pointermove', (ev) => {
+      if (!drag) return;
+      if (!drag.active) {
+        if (Math.abs(ev.clientY - drag.startY) < 5) return;
+        drag.active = true;
+        document.body.classList.add('rb-selecting');
+      }
+      const rows = [...tbody.querySelectorAll('tr[data-id]')];
+      const anchorIdx = rows.findIndex((r) => r.dataset.id === drag.anchorId);
+      const hovered = document.elementFromPoint(ev.clientX, ev.clientY);
+      const hoverRow = hovered && hovered.closest ? hovered.closest('tr[data-id]') : null;
+      const currentIdx = hoverRow ? rows.indexOf(hoverRow) : -1;
+      rows.forEach((r) => r.classList.remove('drag-range'));
+      if (anchorIdx >= 0 && currentIdx >= 0) {
+        const [a, b] = anchorIdx <= currentIdx ? [anchorIdx, currentIdx] : [currentIdx, anchorIdx];
+        for (let i = a; i <= b; i++) rows[i].classList.add('drag-range');
+      }
+    });
+    window.addEventListener('pointerup', () => {
+      if (!drag) return;
+      const wasActive = drag.active;
+      drag = null;
+      document.body.classList.remove('rb-selecting');
+      if (!wasActive) return;
+      lastDragEnd = Date.now();
+      const rows = [...tbody.querySelectorAll('tr[data-id]')];
+      const range = rows.filter((r) => r.classList.contains('drag-range'));
+      rows.forEach((r) => r.classList.remove('drag-range'));
+      if (range.length) {
+        state.selectedIds = new Set(range.map((r) => r.dataset.id));
+        syncSelectionUI();
+      }
+    });
+
+    // 导出 / 导入
+    $('#exportBtn').addEventListener('click', exportLogs);
+    const importFile = $('#importFile');
+    $('#importBtn').addEventListener('click', () => importFile.click());
+    importFile.addEventListener('change', () => {
+      const file = importFile.files && importFile.files[0];
+      if (file) importLogs(file);
+      importFile.value = '';
     });
 
     // 列显示菜单
@@ -1062,11 +1244,28 @@
       const r = await fetch('/api/logs?limit=1000');
       const j = await r.json();
       for (const ev of (j.logs || []).reverse()) {
+        // 与 ws 实时流竞态去重：已由 ingest 送到的事件不重复入列
+        if (state.byId.has(ev.id)) continue;
         state.events.push(ev);
         state.byId.set(ev.id, ev);
       }
       refilter();
     } catch { /* server restarted; ws will bring new events */ }
+  }
+
+  /** 整表刷新（导入后重新拉取服务端历史） */
+  async function reloadHistory() {
+    state.events = [];
+    state.byId.clear();
+    state.detailCache.clear();
+    state.selectedId = null;
+    state.selectedIds.clear();
+    state.current = null;
+    tbody.textContent = '';
+    $('#detail').hidden = true;
+    $('#detailEmpty').style.display = 'flex';
+    await loadHistory();
+    syncSelectionUI();
   }
 
   (async function init() {

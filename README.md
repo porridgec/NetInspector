@@ -119,6 +119,7 @@ NetInspector 抓取的是 **App 的完整请求/响应**——包含登录 token
 
 - **请求列表**：Method / **Host** / **Path**（URL 拆分，query 摘要）/ Status / 耗时 / 响应大小 / 时间，多设备时显示 Device
 - **列显示配置**：工具栏「▾ 列」菜单，9 个列（含可选整段 URL、Device）独立开关并持久化；「恢复默认」一键还原
+- **导出 / 导入**：每行复选框勾选，或**鼠标拖拽框选**任意范围 → D 导出为 JSON（含完整 request/response body，可无损回导）；导入时写回环形缓冲区（按 id 去重），刷新与多端可见
 - **过滤**：搜索支持 `关键词`、`method:GET`、`status:404`、`status:5xx`、`status:>=400`、`host:api`（空格 = AND），另有 Method / 状态分类下拉
 - **暂停/继续**（空格键）、**自动跟随时滚动**（滚离底部暂停，出现 ↓ new requests 按钮）
 - **详情三 Tab**：
@@ -142,6 +143,8 @@ NetInspector 抓取的是 **App 的完整请求/响应**——包含登录 token
 | `GET` | `/api/logs?limit=&offset=` | 日志列表（最新在前，不含 body） |
 | `GET` | `/api/logs/:id` | 单条完整事件（含 body） |
 | `DELETE` | `/api/logs` | 清空缓冲区 |
+| `POST` | `/api/export` | 批量导出完整事件（`{ids:[...]}`，空则全部） |
+| `POST` | `/api/import` | 导入导出文件中的事件（按 id 去重） |
 | `POST` | `/log` | HTTP 回退投递通道（与 WS 相同消息格式） |
 | `GET` | `/ping` | 探活 |
 

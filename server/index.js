@@ -223,6 +223,54 @@ app.delete('/api/logs', (_req, res) => {
   res.json({ ok: true });
 });
 
+/* 导出：按 id 列表返回完整事件（含 body），未指定则导出全部。
+ * 格式：{ format: 'netinspector-export', version: 1, exportedAt, events: [...] } */
+app.post('/api/export', express.json({ limit: 4 * 1024 * 1024 }), (req, res) => {
+  const rawIds = req.body && req.body.ids;
+  const ids = Array.isArray(rawIds) ? rawIds.slice(0, 5000) : null;
+  const events = ids
+    ? ids.map((id) => store.get(String(id))).filter(Boolean)
+    : store.items.slice();
+  res.setHeader('Content-Disposition', `attachment; filename="netinspector-${Date.now()}.json"`);
+  res.json({
+    format: 'netinspector-export',
+    version: 1,
+    exportedAt: Date.now(),
+    server: { capacity: store.capacity },
+    events,
+  });
+});
+
+/* 导入：把导出文件中的事件加回环形缓冲区（按 id 去重），
+ * 广播给所有 Dashboard，刷新后依然存在。 */
+app.post('/api/import', express.json({ limit: MAX_MESSAGE_BYTES }), (req, res) => {
+  const body = req.body;
+  const events = Array.isArray(body) ? body
+    : (body && Array.isArray(body.events) ? body.events : null);
+  if (!events) return res.status(400).json({ error: 'invalid export file' });
+  if (events.length > 5000) return res.status(400).json({ error: 'too many events (max 5000)' });
+
+  let imported = 0;
+  let skipped = 0;
+  for (const raw of events) {
+    const id = raw && raw.id != null ? String(raw.id) : '';
+    if (!id || store.get(id)) { skipped += 1; continue; }
+    try {
+      const stored = store.add(raw, {
+        id: raw.clientId || 'imported',
+        name: raw.clientName || 'Imported',
+        transport: 'import',
+      });
+      broadcastToViewers({ type: 'event', event: summarize(stored) });
+      imported += 1;
+    } catch {
+      skipped += 1;
+    }
+  }
+  console.log(`[import] ${imported} imported, ${skipped} skipped, total=${store.items.length}`);
+  res.json({ ok: true, imported, skipped, total: store.items.length });
+});
+
 /* HTTP fallback transport for devices whose network blocks WebSocket
  * upgrades (phone proxies, transparent middleboxes) but still forwards
  * plain HTTP POSTs. Same message format as the WebSocket channel. */
