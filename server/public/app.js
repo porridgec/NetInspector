@@ -866,8 +866,20 @@
       const container = el('div', {});
       const prettyBtn = el('button', { class: 'btn mini active', text: 'Pretty', onclick: () => setMode('pretty') });
       const rawBtn = el('button', { class: 'btn mini', text: 'Raw', onclick: () => setMode('raw') });
+      const expandAllBtn = el('button', {
+        class: 'btn mini',
+        text: '全部展开',
+        title: '展开所有层级',
+        onclick: () => setJsonTreeExpanded(prettyView, true),
+      });
+      const collapseAllBtn = el('button', {
+        class: 'btn mini',
+        text: '全部折叠',
+        title: '折叠所有层级（只保留根节点）',
+        onclick: () => setJsonTreeExpanded(prettyView, false),
+      });
       const copyBtn = el('button', { class: 'btn mini', text: 'Copy formatted', onclick: () => copyText(JSON.stringify(parsed, null, 2)) });
-      container.append(sectionCard('JSON', el('span', { class: 'right' }, prettyBtn, rawBtn, copyBtn)));
+      container.append(sectionCard('JSON', el('span', { class: 'right' }, expandAllBtn, collapseAllBtn, prettyBtn, rawBtn, copyBtn)));
 
       const prettyView = el('div', {}, jsonTree(parsed));
       const rawView = el('pre', { class: 'raw', text: body });
@@ -901,6 +913,15 @@
     return el('div', { class: 'jtree' }, jsonNode(value, '', 0, true));
   }
 
+  /** 全部展开 / 全部折叠（作用于整棵树） */
+  function setJsonTreeExpanded(container, expanded) {
+    for (const node of container.querySelectorAll('.jnode')) {
+      node.classList.toggle('closed', !expanded);
+      const caret = node.querySelector(':scope > .jhead > .jcaret');
+      if (caret) caret.textContent = expanded ? '▾' : '▸';
+    }
+  }
+
   function jsonNode(value, key, depth, isRoot) {
     if (value === null || typeof value !== 'object') {
       const line = el('div', { class: 'jline' });
@@ -917,6 +938,7 @@
 
     const head = el('div', { class: 'jline jhead' });
     const caret = el('span', { class: 'jcaret', text: '▾' });
+    head.append(caret);
     if (key) head.append(el('span', { class: 'jkey', text: `"${key}": ` }));
     head.append(el('span', { class: 'jbrk', text: `${isArr ? '[' : '{'} ${entries.length} ${isArr ? 'items' : 'keys'} ${isArr ? ']' : '}'}` }));
 
@@ -930,9 +952,8 @@
       kids.append(el('div', { class: 'jmore', text: `… ${entries.length - LIMIT} more items` }));
     }
 
-    const collapsed = !isRoot && (depth >= 3 || (depth >= 1 && entries.length > 8));
-    const node = el('div', { class: `jnode${collapsed ? ' closed' : ''}` }, head, kids);
-    if (collapsed) caret.textContent = '▸';
+    // 默认全部展开（层级折叠由用户手动控制 / 全部展开·折叠按钮）
+    const node = el('div', { class: 'jnode' }, head, kids);
     const toggle = () => {
       node.classList.toggle('closed');
       caret.textContent = node.classList.contains('closed') ? '▸' : '▾';
