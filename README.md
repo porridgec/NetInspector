@@ -111,7 +111,8 @@ npm start
 
 ### Dashboard 功能
 
-- **请求列表**：Method（彩色标签）/ Host+Path / Status / 耗时 / 响应大小 / 时间，多设备时显示 Device 列
+- **请求列表**：Method / Host / Path（可拆分显示）/ Status / 耗时 / 响应大小 / 时间，多设备时显示 Device 列
+- **列显示配置**：工具栏「▾ 列」菜单，每个列（含 URL 整列）可独立开关并持久化
 - **过滤**：搜索框支持 `关键词`、`method:GET`、`status:404`、`status:5xx`、`status:>=400`、`host:api`（空格分隔 = AND），另有 Method / 状态分类下拉
 - **暂停/继续**：`⏸ Pause` 按钮或空格键暂停实时刷新（后台继续缓存，恢复时批量刷入）
 - **自动跟随滚动**：滚离底部自动暂停跟随，出现 "↓ new requests" 悬浮按钮

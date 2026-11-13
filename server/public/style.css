@@ -150,6 +150,8 @@ table#list { width: 100%; border-collapse: collapse; table-layout: fixed; }
 @keyframes rowFlash { from { background: rgba(91, 157, 255, 0.28); } }
 
 .c-method { width: 64px; }
+.c-host { width: 150px; }
+.c-url { width: 220px; }
 .c-status { width: 52px; }
 .c-dur { width: 68px; text-align: right; }
 .c-size { width: 68px; text-align: right; }
@@ -195,6 +197,32 @@ table#list { width: 100%; border-collapse: collapse; table-layout: fixed; }
   padding: 5px 14px; font-size: 12px; cursor: pointer; box-shadow: 0 2px 12px rgba(0,0,0,0.5);
   z-index: 3;
 }
+
+/* ------------------------------ 列显示菜单 ------------------------------ */
+
+#toolbar { position: relative; }
+#colMenu {
+  position: fixed; z-index: 60;
+  background: var(--panel); border: 1px solid var(--border2); border-radius: 8px;
+  padding: 5px; min-width: 170px;
+  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.55);
+}
+.colTitle {
+  font-size: 10.5px; color: var(--dimmer); text-transform: uppercase;
+  letter-spacing: 0.6px; padding: 4px 10px 6px;
+}
+.colItem {
+  display: flex; align-items: center; gap: 9px;
+  padding: 5px 10px; font-size: 12px; cursor: pointer; user-select: none;
+  border-radius: 5px;
+}
+.colItem:hover { background: var(--accent-dim); }
+.colItem input { accent-color: var(--accent); margin: 0; }
+.colReset {
+  border-top: 1px solid var(--border); margin-top: 5px; padding: 7px 10px 3px;
+  font-size: 11.5px; color: var(--dim); cursor: pointer; text-align: center;
+}
+.colReset:hover { color: var(--accent); }
 
 /* ------------------------------ detail pane ------------------------------ */
 

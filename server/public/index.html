@@ -30,6 +30,8 @@
     </select>
     <button id="pauseBtn" class="btn" title="Pause live capture (Space)">⏸ Pause</button>
     <button id="clearBtn" class="btn" title="Clear all captured requests">🧹 Clear</button>
+    <button id="colBtn" class="btn" title="显示 / 隐藏列">▾ 列</button>
+    <div id="colMenu" hidden></div>
     <div class="spacer"></div>
     <div id="clients" class="clients"></div>
     <div id="stats" class="stats" title="shown / captured">0 / 0</div>
@@ -40,15 +42,7 @@
       <div id="listScroller">
         <table id="list">
           <thead>
-            <tr>
-              <th class="c-method">Method</th>
-              <th class="c-path">URL</th>
-              <th class="c-status">Status</th>
-              <th class="c-dur">Time</th>
-              <th class="c-size">Size</th>
-              <th class="c-time">Clock</th>
-              <th class="c-dev" hidden>Device</th>
-            </tr>
+            <tr id="headRow"></tr>
           </thead>
           <tbody id="listBody"></tbody>
         </table>

@@ -163,36 +163,86 @@
     multiClient: false,
     tab: 'overview',
     current: null,         // full event shown in detail pane
+    visibleColumns: [],    // 由下方 loadVisibleColumns() 填充
   };
+
+  /* ------------------------------ 列配置 ------------------------------ */
+
+  state.visibleColumns = loadVisibleColumns();
+
+  const COLUMN_DEFS = [
+    { id: 'method', label: 'Method', cls: 'c-method' },
+    { id: 'host',   label: 'Host',   cls: 'c-host' },
+    { id: 'path',   label: 'Path',   cls: 'c-path' },
+    { id: 'url',    label: 'URL',    cls: 'c-url',   def: false },
+    { id: 'status', label: 'Status', cls: 'c-status' },
+    { id: 'dur',    label: 'Time',   cls: 'c-dur' },
+    { id: 'size',   label: 'Size',   cls: 'c-size' },
+    { id: 'clock',  label: 'Clock',  cls: 'c-time' },
+    { id: 'dev',    label: 'Device', cls: 'c-dev',   def: false },
+  ];
+  let columnsUserSet = false; // 用户是否手动配置过列（未配置时多设备自动显示 Device 列）
+
+  function loadVisibleColumns() {
+    try {
+      const saved = JSON.parse(localStorage.getItem('ni.columns') || 'null');
+      if (Array.isArray(saved)) {
+        columnsUserSet = true;
+        const valid = saved.filter((id) => COLUMN_DEFS.some((c) => c.id === id));
+        if (valid.length) return valid;
+      }
+    } catch { /* ignore */ }
+    return COLUMN_DEFS.filter((c) => c.def !== false).map((c) => c.id);
+  }
+
+  function saveVisibleColumns() {
+    columnsUserSet = true;
+    try { localStorage.setItem('ni.columns', JSON.stringify(state.visibleColumns)); } catch { /* ignore */ }
+  }
+
+  const visibleColumnDefs = () => COLUMN_DEFS.filter((c) => state.visibleColumns.includes(c.id));
+
+  function renderHead() {
+    const row = $('#headRow');
+    row.textContent = '';
+    for (const c of visibleColumnDefs()) row.append(el('th', { class: c.cls, text: c.label }));
+  }
 
   /* ------------------------------ list rendering ------------------------------ */
 
   const tbody = $('#listBody');
   const scroller = $('#listScroller');
 
+  const CELL_RENDERERS = {
+    method: (e) => el('td', { class: 'c-method' }, methodChip(e.method)),
+    host: (e) => {
+      const td = el('td', { class: 'c-host', title: e.url || '' });
+      td.append(el('span', { class: 'host', text: e.host || '' }));
+      return td;
+    },
+    path: (e) => {
+      const td = el('td', { class: 'c-path', title: e.url || '' });
+      td.append(document.createTextNode(e.path || '/'));
+      if (e.query) {
+        const short = e.query.length > 30 ? `${e.query.slice(0, 30)}…` : e.query;
+        td.append(el('span', { class: 'q', text: `?${short}` }));
+      }
+      return td;
+    },
+    url: (e) => el('td', { class: 'c-url', title: e.url || '', text: e.url || '' }),
+    status: (e) => el('td', { class: 'c-status' }, statusChip(e)),
+    dur: (e) => {
+      const d = +e.durationMs || 0;
+      return el('td', { class: `c-dur${d > 3000 ? ' dur-slow' : d > 800 ? ' dur-mid' : ''}`, text: fmtDur(d) });
+    },
+    size: (e) => el('td', { class: 'c-size', text: fmtBytes(e.responseBodySize || 0) }),
+    clock: (e) => el('td', { class: 'c-time', text: fmtTime(e.timestamp) }),
+    dev: (e) => el('td', { class: 'c-dev', text: e.clientName || '' }),
+  };
+
   function rowFor(e) {
     const tr = el('tr', { 'data-id': e.id, class: 'new' });
-    tr.append(el('td', { class: 'c-method' }, methodChip(e.method)));
-
-    const pathTd = el('td', { class: 'c-path' });
-    if (e.host) pathTd.append(el('span', { class: 'host', text: e.host }));
-    pathTd.append(document.createTextNode(e.path || '/'));
-    if (e.query) {
-      const short = e.query.length > 30 ? `${e.query.slice(0, 30)}…` : e.query;
-      pathTd.append(el('span', { class: 'q', text: `?${short}` }));
-    }
-    tr.append(pathTd);
-
-    tr.append(el('td', { class: 'c-status' }, statusChip(e)));
-
-    const d = +e.durationMs || 0;
-    const durTd = el('td', { class: `c-dur${d > 3000 ? ' dur-slow' : d > 800 ? ' dur-mid' : ''}`, text: fmtDur(d) });
-    tr.append(durTd);
-
-    tr.append(el('td', { class: 'c-size', text: fmtBytes(e.responseBodySize || 0) }));
-    tr.append(el('td', { class: 'c-time', text: fmtTime(e.timestamp) }));
-    if (state.multiClient) tr.append(el('td', { class: 'c-dev', text: e.clientName || '' }));
-
+    for (const c of visibleColumnDefs()) tr.append(CELL_RENDERERS[c.id](e));
     tr.addEventListener('animationend', () => tr.classList.remove('new'), { once: true });
     return tr;
   }
@@ -801,7 +851,13 @@
     const multi = list.length > 1;
     if (multi !== state.multiClient) {
       state.multiClient = multi;
-      document.querySelector('#list .c-dev').hidden = !multi;
+      // 用户未手动配置过列时，多设备自动显示 Device 列
+      if (!columnsUserSet) {
+        state.visibleColumns = multi
+          ? (state.visibleColumns.includes('dev') ? state.visibleColumns : [...state.visibleColumns, 'dev'])
+          : state.visibleColumns.filter((id) => id !== 'dev');
+        renderHead();
+      }
       refilter();
     }
     const c = $('#clients');
@@ -832,6 +888,22 @@
     tbody.addEventListener('click', (ev) => {
       const tr = ev.target.closest('tr[data-id]');
       if (tr) select(tr.dataset.id);
+    });
+
+    // 列显示菜单
+    const colBtn = $('#colBtn');
+    const colMenu = $('#colMenu');
+    colBtn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      const rect = colBtn.getBoundingClientRect();
+      colMenu.style.top = `${rect.bottom + 6}px`;
+      colMenu.style.left = `${Math.min(rect.left, window.innerWidth - 190)}px`;
+      colMenu.hidden = !colMenu.hidden;
+    });
+    document.addEventListener('click', (ev) => {
+      if (!colMenu.hidden && !colMenu.contains(ev.target) && ev.target !== colBtn && !colBtn.contains(ev.target)) {
+        colMenu.hidden = true;
+      }
     });
 
     let searchTimer;
@@ -898,6 +970,43 @@
       nextIdx = Math.max(0, Math.min(rows.length - 1, nextIdx));
       select(rows[nextIdx].dataset.id);
     });
+
+    buildColMenu();
+    renderHead();
+  }
+
+  function buildColMenu() {
+    const menu = $('#colMenu');
+    menu.textContent = '';
+    menu.append(el('div', { class: 'colTitle', text: '显示列' }));
+    for (const c of COLUMN_DEFS) {
+      const cb = el('input', { type: 'checkbox' });
+      cb.checked = state.visibleColumns.includes(c.id);
+      cb.addEventListener('change', () => {
+        // 至少保留一列
+        if (!cb.checked && state.visibleColumns.length <= 1) { cb.checked = true; return; }
+        state.visibleColumns = cb.checked
+          ? COLUMN_DEFS.filter((d) => d.id === c.id || state.visibleColumns.includes(d.id)).map((d) => d.id)
+          : state.visibleColumns.filter((id) => id !== c.id);
+        saveVisibleColumns();
+        buildColMenu(); // 刷新勾选态
+        renderHead();
+        refilter();
+      });
+      menu.append(el('label', { class: 'colItem' }, cb, el('span', { text: c.label })));
+    }
+    menu.append(el('div', {
+      class: 'colReset',
+      text: '恢复默认',
+      onclick: () => {
+        try { localStorage.removeItem('ni.columns'); } catch { /* ignore */ }
+        columnsUserSet = false;
+        state.visibleColumns = loadVisibleColumns();
+        buildColMenu();
+        renderHead();
+        refilter();
+      },
+    }));
   }
 
   /* ------------------------------ splitter ------------------------------ */
