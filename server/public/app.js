@@ -168,8 +168,6 @@
 
   /* ------------------------------ 列配置 ------------------------------ */
 
-  state.visibleColumns = loadVisibleColumns();
-
   const COLUMN_DEFS = [
     { id: 'method', label: 'Method', cls: 'c-method' },
     { id: 'host',   label: 'Host',   cls: 'c-host' },
@@ -182,6 +180,8 @@
     { id: 'dev',    label: 'Device', cls: 'c-dev',   def: false },
   ];
   let columnsUserSet = false; // 用户是否手动配置过列（未配置时多设备自动显示 Device 列）
+
+  state.visibleColumns = loadVisibleColumns();
 
   function loadVisibleColumns() {
     try {
