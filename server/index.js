@@ -119,7 +119,13 @@ app.use((_req, res, next) => {
 // 且 <link>/<script> 请求不会携带 query 里的 token——若被 401 会整页裸奔。
 // 敏感数据全部由下方鉴权保护的 /api/*、/log、WS 升级提供（app.js 会自动
 // 把 token 附加到每个 API 请求上）。
-app.use(express.static(path.join(__dirname, 'public')));
+// no-cache = 允许缓存但每次使用前必须重新校验（ETag 304），
+// 保证服务端更新后浏览器不会继续跑旧版 JS。
+app.use(express.static(path.join(__dirname, 'public'), {
+  setHeaders: (res) => {
+    res.setHeader('Cache-Control', 'no-cache');
+  },
+}));
 
 // Host + Token 校验：保护所有数据通道（API / HTTP 回退 / ping）
 app.use((req, res, next) => {
